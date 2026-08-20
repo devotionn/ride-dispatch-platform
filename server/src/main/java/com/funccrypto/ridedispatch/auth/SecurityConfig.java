@@ -22,7 +22,7 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(
             HttpSecurity http,
-            BearerAuthenticationFilter bearerFilter,
+            AuthService authService,
             SecurityJsonHandlers handlers) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
@@ -45,7 +45,7 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/driver/**")
                         .hasRole("DRIVER")
                         .anyRequest().authenticated())
-                .addFilterBefore(bearerFilter, AnonymousAuthenticationFilter.class);
+                .addFilterBefore(new BearerAuthenticationFilter(authService), AnonymousAuthenticationFilter.class);
         return http.build();
     }
 }

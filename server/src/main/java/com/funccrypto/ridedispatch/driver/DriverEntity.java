@@ -71,6 +71,7 @@ public class DriverEntity {
             String driverNo,
             String name,
             String mobile,
+            String passwordHash,
             int maxPassengers,
             int availablePassengers,
             String qrShortCode,
@@ -78,6 +79,7 @@ public class DriverEntity {
         this.driverNo = driverNo;
         this.name = name;
         this.mobile = mobile;
+        this.passwordHash = passwordHash;
         this.accountStatus = DriverAccountStatus.ACTIVE;
         this.workStatus = DriverWorkStatus.AVAILABLE;
         this.maxPassengers = maxPassengers;
@@ -95,10 +97,24 @@ public class DriverEntity {
             int availablePassengers,
             String qrShortCode,
             Instant now) {
+        return createWithPassword(
+                driverNo, name, mobile, null, maxPassengers, availablePassengers, qrShortCode, now);
+    }
+
+    public static DriverEntity createWithPassword(
+            String driverNo,
+            String name,
+            String mobile,
+            String passwordHash,
+            int maxPassengers,
+            int availablePassengers,
+            String qrShortCode,
+            Instant now) {
         if (maxPassengers < 1 || availablePassengers < 0 || availablePassengers > maxPassengers) {
             throw new BusinessException("DRIVER_CAPACITY_INVALID", "司机可接人数配置不合法");
         }
-        return new DriverEntity(driverNo, name, mobile, maxPassengers, availablePassengers, qrShortCode, now);
+        return new DriverEntity(
+                driverNo, name, mobile, passwordHash, maxPassengers, availablePassengers, qrShortCode, now);
     }
 
     public boolean canReceiveNewOrder(int passengerCount) {
@@ -117,6 +133,10 @@ public class DriverEntity {
 
     public String getName() {
         return name;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
     }
 
     public DriverAccountStatus getAccountStatus() {

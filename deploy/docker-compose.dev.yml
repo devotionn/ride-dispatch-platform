@@ -1,0 +1,23 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: ride-dispatch-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: ride_dispatch
+      MYSQL_USER: ride
+      MYSQL_PASSWORD: ride_dev_password
+      MYSQL_ROOT_PASSWORD: root_dev_password
+      TZ: Asia/Shanghai
+    ports:
+      - '3306:3306'
+    volumes:
+      - ride-dispatch-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ['CMD', 'mysqladmin', 'ping', '-h', '127.0.0.1', '-uroot', '-proot_dev_password']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  ride-dispatch-mysql-data:

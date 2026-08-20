@@ -16,7 +16,7 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     ResponseEntity<ApiError> handleBusiness(BusinessException exception, HttpServletRequest request) {
-        return ResponseEntity.status(HttpStatus.CONFLICT)
+        return ResponseEntity.status(exception.getStatus())
                 .body(new ApiError(exception.getCode(), exception.getMessage(), requestId(request)));
     }
 

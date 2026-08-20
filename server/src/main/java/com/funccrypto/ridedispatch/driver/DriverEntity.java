@@ -123,6 +123,27 @@ public class DriverEntity {
                 && availablePassengers >= passengerCount;
     }
 
+    public void assignDefaultVehicle(Long vehicleId, Instant now) {
+        this.defaultVehicleId = vehicleId;
+        this.updatedAt = now;
+    }
+
+    public void updateWorkStatus(DriverWorkStatus workStatus, Instant now) {
+        if (accountStatus != DriverAccountStatus.ACTIVE) {
+            throw new BusinessException("DRIVER_DISABLED", "司机账号已停用");
+        }
+        this.workStatus = workStatus;
+        this.updatedAt = now;
+    }
+
+    public void updateAvailablePassengers(int availablePassengers, Instant now) {
+        if (availablePassengers < 0 || availablePassengers > maxPassengers) {
+            throw new BusinessException("DRIVER_CAPACITY_INVALID", "当前可接人数不能超过车辆最大载客人数");
+        }
+        this.availablePassengers = availablePassengers;
+        this.updatedAt = now;
+    }
+
     public Long getId() {
         return id;
     }
@@ -133,6 +154,10 @@ public class DriverEntity {
 
     public String getName() {
         return name;
+    }
+
+    public String getMobile() {
+        return mobile;
     }
 
     public String getPasswordHash() {
@@ -157,5 +182,9 @@ public class DriverEntity {
 
     public String getQrShortCode() {
         return qrShortCode;
+    }
+
+    public Long getDefaultVehicleId() {
+        return defaultVehicleId;
     }
 }

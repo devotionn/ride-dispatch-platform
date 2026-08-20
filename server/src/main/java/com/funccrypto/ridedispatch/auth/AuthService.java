@@ -10,6 +10,7 @@ import com.funccrypto.ridedispatch.driver.DriverEntity;
 import com.funccrypto.ridedispatch.driver.DriverRepository;
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -129,7 +130,7 @@ public class AuthService {
     }
 
     private BusinessException invalidCredentials() {
-        return new BusinessException("AUTH_INVALID_CREDENTIALS", "账号或密码错误");
+        return new BusinessException("AUTH_INVALID_CREDENTIALS", "账号或密码错误", HttpStatus.UNAUTHORIZED);
     }
 
     public record LoginResult(String accessToken, Instant expiresAt, String authority) {

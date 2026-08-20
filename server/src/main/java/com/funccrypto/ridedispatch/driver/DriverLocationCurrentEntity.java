@@ -49,6 +49,16 @@ public class DriverLocationCurrentEntity {
             Instant locatedAt,
             Instant receivedAt) {
         this.driverId = driverId;
+        update(latitude, longitude, accuracyMeters, source, locatedAt, receivedAt);
+    }
+
+    public void update(
+            BigDecimal latitude,
+            BigDecimal longitude,
+            BigDecimal accuracyMeters,
+            DriverLocationSource source,
+            Instant locatedAt,
+            Instant receivedAt) {
         this.latitude = latitude;
         this.longitude = longitude;
         this.accuracyMeters = accuracyMeters;

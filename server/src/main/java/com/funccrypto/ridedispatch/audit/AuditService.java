@@ -2,19 +2,19 @@ package com.funccrypto.ridedispatch.audit;
 
 import java.time.Instant;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.json.JsonMapper;
 import org.springframework.stereotype.Service;
 
 @Service
 public class AuditService {
 
     private final OperationLogRepository repository;
-    private final ObjectMapper objectMapper;
+    private final JsonMapper jsonMapper;
 
-    public AuditService(OperationLogRepository repository, ObjectMapper objectMapper) {
+    public AuditService(OperationLogRepository repository, JsonMapper jsonMapper) {
         this.repository = repository;
-        this.objectMapper = objectMapper;
+        this.jsonMapper = jsonMapper;
     }
 
     public void log(
@@ -46,8 +46,8 @@ public class AuditService {
             return null;
         }
         try {
-            return objectMapper.writeValueAsString(value);
-        } catch (JsonProcessingException exception) {
+            return jsonMapper.writeValueAsString(value);
+        } catch (JacksonException exception) {
             throw new IllegalStateException("Failed to serialize audit snapshot", exception);
         }
     }

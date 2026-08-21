@@ -17,6 +17,8 @@ public interface RideOrderRepository extends JpaRepository<RideOrderEntity, Long
 
     Optional<RideOrderEntity> findByOrderNo(String orderNo);
 
+    Optional<RideOrderEntity> findByIdempotencyKey(String idempotencyKey);
+
     Page<RideOrderEntity> findByStatus(OrderStatus status, Pageable pageable);
 
     List<RideOrderEntity> findByCurrentDriverIdAndStatusInOrderByDepartureAtAsc(

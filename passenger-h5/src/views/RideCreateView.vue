@@ -6,7 +6,9 @@ import { closeToast, showFailToast, showLoadingToast, showSuccessToast } from 'v
 import { getPublicBrand } from '../api/brand'
 import { getPublicDriver } from '../api/drivers'
 import { createOrder } from '../api/orders'
+import MapPointPicker from '../components/MapPointPicker.vue'
 import type { PlatformBrand, PublicDriverProfile } from '../domain/types'
+import type { MapPoint } from '../map/types'
 import { saveOrderToken } from '../storage/orderToken'
 
 const route = useRoute()
@@ -15,16 +17,12 @@ const brand = ref<PlatformBrand>({ companyName: '预约用车' })
 const driverProfile = ref<PublicDriverProfile | null>(null)
 const driverError = ref('')
 const driverLoading = ref(false)
-const locating = ref(false)
 const submitting = ref(false)
+const pickup = ref<MapPoint | null>(null)
+const destination = ref<MapPoint | null>(null)
+const pickerTarget = ref<'pickup' | 'destination' | null>(null)
 
 const form = reactive({
-  pickupAddress: '',
-  pickupLatitude: '',
-  pickupLongitude: '',
-  destinationAddress: '',
-  destinationLatitude: '',
-  destinationLongitude: '',
   passengerCount: 1,
   departureAt: defaultDepartureTime(),
   mobile: '',
@@ -36,11 +34,23 @@ const driverShortCode = computed(() => {
   return typeof value === 'string' ? value.trim() : ''
 })
 const directed = computed(() => Boolean(driverShortCode.value))
+const passengerMax = computed(() => (directed.value && driverProfile.value ? driverProfile.value.maxPassengers : 20))
+const pickerTitle = computed(() => (pickerTarget.value === 'destination' ? '选择目的地' : '选择上车点'))
+const pickerPoint = computed(() => (pickerTarget.value === 'destination' ? destination.value : pickup.value))
 
 watch(
   driverShortCode,
   (value) => void loadDriver(value),
   { immediate: true },
+)
+
+watch(passengerMax, (max) => {
+  if (form.passengerCount > max) form.passengerCount = max
+})
+
+watch(
+  () => route.fullPath,
+  () => window.scrollTo({ top: 0 }),
 )
 
 onMounted(async () => {
@@ -72,31 +82,14 @@ function defaultDepartureTime(): string {
   return local.toISOString().slice(0, 16)
 }
 
-function useCurrentLocation(): void {
-  if (!navigator.geolocation) {
-    showFailToast('当前浏览器不支持定位')
-    return
-  }
-  locating.value = true
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      form.pickupLatitude = position.coords.latitude.toFixed(7)
-      form.pickupLongitude = position.coords.longitude.toFixed(7)
-      if (!form.pickupAddress) form.pickupAddress = '当前位置'
-      locating.value = false
-      showSuccessToast('已获取当前位置')
-    },
-    () => {
-      locating.value = false
-      showFailToast('定位失败，请手工填写位置')
-    },
-    { enableHighAccuracy: true, timeout: 10_000, maximumAge: 30_000 },
-  )
+function openPicker(target: 'pickup' | 'destination'): void {
+  pickerTarget.value = target
 }
 
-function coordinateValid(value: string, min: number, max: number): boolean {
-  const number = Number(value)
-  return Number.isFinite(number) && number >= min && number <= max
+function applyPoint(point: MapPoint): void {
+  if (pickerTarget.value === 'destination') destination.value = point
+  else pickup.value = point
+  pickerTarget.value = null
 }
 
 async function submit(): Promise<void> {
@@ -105,16 +98,8 @@ async function submit(): Promise<void> {
     showFailToast(driverError.value || '正在确认司机信息，请稍后')
     return
   }
-  if (!form.pickupAddress.trim() || !form.destinationAddress.trim()) {
-    showFailToast('请填写上车点和目的地')
-    return
-  }
-  if (!coordinateValid(form.pickupLatitude, -90, 90) || !coordinateValid(form.destinationLatitude, -90, 90)) {
-    showFailToast('纬度格式不正确')
-    return
-  }
-  if (!coordinateValid(form.pickupLongitude, -180, 180) || !coordinateValid(form.destinationLongitude, -180, 180)) {
-    showFailToast('经度格式不正确')
+  if (!pickup.value || !destination.value) {
+    showFailToast('请选择上车点和目的地')
     return
   }
   if (!/^1\d{10}$/.test(form.mobile)) {
@@ -132,16 +117,8 @@ async function submit(): Promise<void> {
     const result = await createOrder({
       sourceType: directed.value ? 'DRIVER_QR' : 'PUBLIC_H5',
       driverShortCode: directed.value ? driverShortCode.value : undefined,
-      pickup: {
-        address: form.pickupAddress.trim(),
-        latitude: Number(form.pickupLatitude),
-        longitude: Number(form.pickupLongitude),
-      },
-      destination: {
-        address: form.destinationAddress.trim(),
-        latitude: Number(form.destinationLatitude),
-        longitude: Number(form.destinationLongitude),
-      },
+      pickup: pickup.value,
+      destination: destination.value,
       passengerCount: form.passengerCount,
       departureAt: new Date(form.departureAt).toISOString(),
       mobile: form.mobile,
@@ -173,7 +150,6 @@ async function submit(): Promise<void> {
       <p class="hero-copy">
         {{ directed ? '本次订单将优先发送给二维码对应司机确认；司机拒绝后转入调度池。' : '提交行程后由调度人员根据上车位置安排合适司机。' }}
       </p>
-      <div v-if="directed" class="binding-chip">司机专属二维码入口</div>
     </header>
 
     <section v-if="directed" class="surface-card detail-card">
@@ -186,7 +162,7 @@ async function submit(): Promise<void> {
         </div>
         <van-button v-if="driverError" size="small" plain round :loading="driverLoading" @click="loadDriver(driverShortCode)">重试</van-button>
       </div>
-      <p v-if="driverError" class="hero-copy" style="color:#d84a4a; margin-top:8px">{{ driverError }}</p>
+      <p v-if="driverError" class="driver-error-copy">{{ driverError }}</p>
       <dl v-if="driverProfile" class="detail-list">
         <div><dt>司机</dt><dd>{{ driverProfile.name }}</dd></div>
         <div><dt>车辆</dt><dd>{{ driverProfile.brandModel || '车辆信息待完善' }}</dd></div>
@@ -199,27 +175,37 @@ async function submit(): Promise<void> {
       <div class="section-heading">
         <div>
           <span class="section-kicker">行程信息</span>
-          <h2>从哪里出发？</h2>
+          <h2>选择本次行程</h2>
         </div>
-        <van-button size="small" plain round :loading="locating" @click="useCurrentLocation">使用当前位置</van-button>
       </div>
+
+      <div class="route-selector">
+        <button class="route-select-row" type="button" @click="openPicker('pickup')">
+          <span class="route-badge pickup">A</span>
+          <div>
+            <small>上车点</small>
+            <strong :class="{ placeholder: !pickup }">{{ pickup?.address || '定位、搜索或地图选点' }}</strong>
+          </div>
+          <b>选择</b>
+        </button>
+        <div class="route-selector-line" />
+        <button class="route-select-row" type="button" @click="openPicker('destination')">
+          <span class="route-badge destination">B</span>
+          <div>
+            <small>目的地</small>
+            <strong :class="{ placeholder: !destination }">{{ destination?.address || '搜索或地图选点' }}</strong>
+          </div>
+          <b>选择</b>
+        </button>
+      </div>
+
+      <div class="section-spacer" />
 
       <van-form @submit="submit">
         <van-cell-group inset>
-          <van-field v-model="form.pickupAddress" label="上车点" placeholder="请输入上车地址" maxlength="255" />
-          <van-field v-model="form.pickupLatitude" label="上车纬度" type="number" placeholder="例如 32.3910000" />
-          <van-field v-model="form.pickupLongitude" label="上车经度" type="number" placeholder="例如 119.5080000" />
-          <van-field v-model="form.destinationAddress" label="目的地" placeholder="请输入目的地" maxlength="255" />
-          <van-field v-model="form.destinationLatitude" label="目的纬度" type="number" placeholder="例如 32.4200000" />
-          <van-field v-model="form.destinationLongitude" label="目的经度" type="number" placeholder="例如 119.4140000" />
-        </van-cell-group>
-
-        <div class="section-spacer" />
-
-        <van-cell-group inset>
           <van-field label="乘车人数">
             <template #input>
-              <van-stepper v-model="form.passengerCount" :min="1" :max="20" integer />
+              <van-stepper v-model="form.passengerCount" :min="1" :max="passengerMax" integer />
             </template>
           </van-field>
           <van-field v-model="form.departureAt" label="出发时间" type="datetime-local" />
@@ -235,5 +221,13 @@ async function submit(): Promise<void> {
         </div>
       </van-form>
     </section>
+
+    <MapPointPicker
+      :open="pickerTarget !== null"
+      :title="pickerTitle"
+      :model-value="pickerPoint"
+      @close="pickerTarget = null"
+      @select="applyPoint"
+    />
   </main>
 </template>

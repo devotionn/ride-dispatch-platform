@@ -1,7 +1,6 @@
-ALTER TABLE ride_order
-  ADD COLUMN idempotency_key VARCHAR(80) NULL,
-  ADD COLUMN request_fingerprint VARCHAR(64) NULL,
-  ADD CONSTRAINT uk_ride_order_idempotency_key UNIQUE (idempotency_key);
+ALTER TABLE ride_order ADD COLUMN idempotency_key VARCHAR(80) NULL;
+ALTER TABLE ride_order ADD COLUMN request_fingerprint VARCHAR(64) NULL;
+ALTER TABLE ride_order ADD CONSTRAINT uk_ride_order_idempotency_key UNIQUE (idempotency_key);
 
 CREATE TABLE passenger_order_access_token (
   id BIGINT AUTO_INCREMENT PRIMARY KEY,

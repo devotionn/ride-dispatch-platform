@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PublicOrderController {
 
     private static final String PASSENGER_TOKEN_HEADER = "X-Passenger-Token";
+    private static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
 
     private final PublicOrderService service;
 
@@ -28,7 +29,9 @@ public class PublicOrderController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    CreateOrderResponse create(@Valid @RequestBody CreateOrderRequest request) {
+    CreateOrderResponse create(
+            @Valid @RequestBody CreateOrderRequest request,
+            @RequestHeader(value = IDEMPOTENCY_HEADER, required = false) String idempotencyKey) {
         PublicOrderService.CreateOrderResult result = service.create(new PublicOrderService.CreateOrderCommand(
                 request.sourceType(),
                 request.driverShortCode(),
@@ -41,7 +44,7 @@ public class PublicOrderController {
                 request.passengerCount(),
                 request.departureAt().toInstant(),
                 request.mobile(),
-                request.remark()));
+                request.remark()), idempotencyKey);
         return new CreateOrderResponse(result.orderNo(), result.status(), result.passengerAccessToken());
     }
 

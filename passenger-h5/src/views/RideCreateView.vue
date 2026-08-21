@@ -7,8 +7,9 @@ import { getPublicBrand } from '../api/brand'
 import { getPublicDriver } from '../api/drivers'
 import { createOrder } from '../api/orders'
 import MapPointPicker from '../components/MapPointPicker.vue'
-import type { PlatformBrand, PublicDriverProfile } from '../domain/types'
+import type { CreateOrderPayload, PlatformBrand, PublicDriverProfile } from '../domain/types'
 import type { MapPoint } from '../map/types'
+import { clearOrderIdempotencyKey, getOrCreateOrderIdempotencyKey } from '../storage/orderIdempotency'
 import { saveOrderToken } from '../storage/orderToken'
 
 const route = useRoute()
@@ -111,19 +112,23 @@ async function submit(): Promise<void> {
     return
   }
 
+  const payload: CreateOrderPayload = {
+    sourceType: directed.value ? 'DRIVER_QR' : 'PUBLIC_H5',
+    driverShortCode: directed.value ? driverShortCode.value : undefined,
+    pickup: pickup.value,
+    destination: destination.value,
+    passengerCount: form.passengerCount,
+    departureAt: new Date(form.departureAt).toISOString(),
+    mobile: form.mobile,
+    remark: form.remark.trim() || undefined,
+  }
+
   submitting.value = true
   showLoadingToast({ message: '正在提交…', forbidClick: true, duration: 0 })
   try {
-    const result = await createOrder({
-      sourceType: directed.value ? 'DRIVER_QR' : 'PUBLIC_H5',
-      driverShortCode: directed.value ? driverShortCode.value : undefined,
-      pickup: pickup.value,
-      destination: destination.value,
-      passengerCount: form.passengerCount,
-      departureAt: new Date(form.departureAt).toISOString(),
-      mobile: form.mobile,
-      remark: form.remark.trim() || undefined,
-    })
+    const idempotencyKey = await getOrCreateOrderIdempotencyKey(payload)
+    const result = await createOrder(payload, idempotencyKey)
+    clearOrderIdempotencyKey(idempotencyKey)
     saveOrderToken(result.orderNo, result.passengerAccessToken)
     closeToast()
     showSuccessToast('订单已提交')

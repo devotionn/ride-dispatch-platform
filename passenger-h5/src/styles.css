@@ -1,0 +1,112 @@
+:root {
+  font-family: Inter, ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: #182230;
+  background: #f6f8fb;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --primary: #1f6fff;
+  --text-muted: #6e7b8b;
+  --line: #e9eef5;
+  --surface: rgba(255, 255, 255, 0.96);
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: #f6f8fb; }
+button, input, textarea { font: inherit; }
+
+.mobile-page {
+  width: min(100%, 560px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: max(18px, env(safe-area-inset-top)) 16px max(28px, env(safe-area-inset-bottom));
+}
+
+.hero-card {
+  position: relative;
+  overflow: hidden;
+  padding: 26px 24px;
+  border-radius: 28px;
+  color: #fff;
+  background: linear-gradient(145deg, #162a4d 0%, #1e5bd7 58%, #3b8cff 100%);
+  box-shadow: 0 18px 46px rgba(31, 86, 185, 0.2);
+}
+.hero-card::after {
+  content: "";
+  position: absolute;
+  width: 170px;
+  height: 170px;
+  right: -52px;
+  top: -70px;
+  border-radius: 50%;
+  background: rgba(255,255,255,.1);
+}
+.brand-row { display: flex; align-items: center; gap: 14px; position: relative; z-index: 1; }
+.brand-logo { width: 52px; height: 52px; object-fit: contain; border-radius: 15px; background: #fff; padding: 6px; }
+.eyebrow, .section-kicker { margin: 0 0 6px; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; opacity: .78; }
+.hero-card h1, .status-card h1, .access-card h1 { margin: 0; font-size: 27px; line-height: 1.2; }
+.hero-copy { position: relative; z-index: 1; margin: 18px 0 0; line-height: 1.7; color: rgba(255,255,255,.8); font-size: 14px; }
+.binding-chip { position: relative; z-index: 1; display: inline-flex; margin-top: 18px; padding: 8px 12px; border: 1px solid rgba(255,255,255,.25); border-radius: 999px; background: rgba(255,255,255,.12); font-size: 12px; }
+
+.surface-card, .status-card, .amount-card {
+  margin-top: 14px;
+  border: 1px solid rgba(225, 231, 239, .85);
+  border-radius: 24px;
+  background: var(--surface);
+  box-shadow: 0 10px 30px rgba(31, 45, 61, .055);
+}
+.form-card, .detail-card, .route-card, .access-card { padding: 20px; }
+.section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 14px; }
+.section-heading.compact { margin-bottom: 8px; }
+.section-heading h2 { margin: 0; font-size: 20px; line-height: 1.35; }
+.section-kicker { color: #7a8798; font-weight: 700; }
+.section-spacer { height: 12px; }
+.form-card .van-cell-group--inset { margin: 0; border: 1px solid var(--line); border-radius: 18px; overflow: hidden; }
+.form-card .van-field { padding: 14px 14px; }
+.submit-area { padding: 18px 2px 4px; }
+.submit-area .van-button--primary { background: var(--primary); border-color: var(--primary); height: 50px; font-weight: 700; }
+.privacy-note { margin: 12px 6px 0; color: #8a96a5; text-align: center; font-size: 12px; line-height: 1.5; }
+
+.simple-header { display: flex; justify-content: space-between; align-items: center; min-height: 42px; padding: 0 4px 8px; font-size: 14px; font-weight: 700; }
+.text-button { border: 0; background: transparent; color: var(--primary); padding: 8px; cursor: pointer; }
+.text-button:disabled { opacity: .4; }
+.access-card { margin-top: 12px; }
+.access-card > p { color: var(--text-muted); font-size: 13px; }
+.token-input { margin: 18px 0 14px; border: 1px solid var(--line); border-radius: 14px; }
+
+.status-card { position: relative; padding: 24px; display: grid; grid-template-columns: 16px 1fr; gap: 12px; }
+.status-card p { grid-column: 2; margin: 8px 0 0; color: var(--text-muted); line-height: 1.6; font-size: 14px; }
+.status-dot { width: 12px; height: 12px; margin-top: 8px; border-radius: 50%; background: var(--primary); box-shadow: 0 0 0 7px rgba(31,111,255,.1); }
+.status-card[data-tone="success"] .status-dot { background: #16a36a; box-shadow: 0 0 0 7px rgba(22,163,106,.1); }
+.status-card[data-tone="warning"] .status-dot { background: #ef9b26; box-shadow: 0 0 0 7px rgba(239,155,38,.12); }
+.status-card[data-tone="danger"] .status-dot { background: #d84a4a; box-shadow: 0 0 0 7px rgba(216,74,74,.1); }
+.status-card[data-tone="neutral"] .status-dot { background: #8a96a5; box-shadow: 0 0 0 7px rgba(138,150,165,.1); }
+.stage-pill { grid-column: 2; width: fit-content; margin-top: 4px; padding: 7px 10px; border-radius: 999px; background: #edf4ff; color: #1f63d5; font-size: 12px; font-weight: 700; }
+
+.amount-card { padding: 20px 22px; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 16px; }
+.amount-card span { color: var(--text-muted); font-size: 13px; }
+.amount-card strong { grid-row: span 2; font-size: 28px; color: #162a4d; }
+.amount-card small { color: #9aa4b1; }
+
+.detail-list { margin: 0; }
+.detail-list > div { display: grid; grid-template-columns: 86px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+.detail-list > div:last-child { border-bottom: 0; }
+.detail-list dt { color: var(--text-muted); font-size: 13px; }
+.detail-list dd { margin: 0; text-align: right; font-size: 13px; overflow-wrap: anywhere; }
+
+.route-card { padding: 22px; }
+.route-point { display: grid; grid-template-columns: 32px 1fr; gap: 12px; align-items: flex-start; }
+.route-point > span { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 10px; color: #fff; background: #16a36a; font-weight: 800; font-size: 13px; }
+.route-point.destination > span { background: #ef6a46; }
+.route-point div { display: grid; gap: 3px; }
+.route-point small { color: var(--text-muted); }
+.route-point strong { font-size: 15px; }
+.route-point em { color: #9aa4b1; font-style: normal; font-size: 11px; }
+.route-line { width: 1px; height: 25px; margin: 4px 0 4px 15px; background: #dbe3ee; }
+.status-actions { padding-left: 0; padding-right: 0; }
+
+@media (max-width: 380px) {
+  .mobile-page { padding-left: 10px; padding-right: 10px; }
+  .hero-card, .form-card, .detail-card, .route-card, .access-card, .status-card { border-radius: 20px; }
+  .hero-card { padding: 22px 18px; }
+  .form-card { padding: 16px 12px; }
+}

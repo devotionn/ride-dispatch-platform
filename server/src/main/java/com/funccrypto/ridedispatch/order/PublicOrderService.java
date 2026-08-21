@@ -21,26 +21,48 @@ public class PublicOrderService {
     private final RideOrderRepository orderRepository;
     private final DriverRepository driverRepository;
     private final DispatchAttemptRepository dispatchAttemptRepository;
+    private final PassengerOrderAccessTokenRepository passengerTokenRepository;
     private final PassengerAccessTokenService tokenService;
+    private final OrderRequestFingerprintService fingerprintService;
     private final Clock clock;
 
     public PublicOrderService(
             RideOrderRepository orderRepository,
             DriverRepository driverRepository,
             DispatchAttemptRepository dispatchAttemptRepository,
+            PassengerOrderAccessTokenRepository passengerTokenRepository,
             PassengerAccessTokenService tokenService,
+            OrderRequestFingerprintService fingerprintService,
             Clock clock) {
         this.orderRepository = orderRepository;
         this.driverRepository = driverRepository;
         this.dispatchAttemptRepository = dispatchAttemptRepository;
+        this.passengerTokenRepository = passengerTokenRepository;
         this.tokenService = tokenService;
+        this.fingerprintService = fingerprintService;
         this.clock = clock;
     }
 
     @Transactional
     public CreateOrderResult create(CreateOrderCommand command) {
+        return create(command, null);
+    }
+
+    @Transactional
+    public CreateOrderResult create(CreateOrderCommand command, String rawIdempotencyKey) {
         if (command.sourceType() == OrderSourceType.ADMIN_CREATED) {
             throw new BusinessException("INVALID_ORDER_SOURCE", "公共接口不能创建后台代客订单");
+        }
+
+        String idempotencyKey = normalizeIdempotencyKey(rawIdempotencyKey);
+        String requestFingerprint = idempotencyKey == null ? null : fingerprintService.fingerprint(command);
+        Instant now = clock.instant();
+
+        if (idempotencyKey != null) {
+            RideOrderEntity existing = orderRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
+            if (existing != null) {
+                return replay(existing, requestFingerprint, now);
+            }
         }
 
         Long sourceDriverId = null;
@@ -62,7 +84,6 @@ public class PublicOrderService {
             throw new BusinessException("INVALID_DRIVER_BINDING", "公共订单不能绑定司机二维码");
         }
 
-        Instant now = clock.instant();
         PassengerAccessTokenService.GeneratedToken token = tokenService.generate();
         RideOrderEntity order = new RideOrderEntity(
                 nextOrderNo(),
@@ -70,6 +91,8 @@ public class PublicOrderService {
                 sourceDriverId,
                 command.passengerMobile(),
                 token.hash(),
+                idempotencyKey,
+                requestFingerprint,
                 command.pickupAddress(),
                 command.pickupLatitude(),
                 command.pickupLongitude(),
@@ -119,10 +142,34 @@ public class PublicOrderService {
         return order.getStatus();
     }
 
+    private CreateOrderResult replay(RideOrderEntity existing, String requestFingerprint, Instant now) {
+        if (!requestFingerprint.equals(existing.getRequestFingerprint())) {
+            throw new BusinessException("IDEMPOTENCY_CONFLICT", "同一幂等键不能用于不同的下单内容");
+        }
+        PassengerAccessTokenService.GeneratedToken replayToken = tokenService.generate();
+        passengerTokenRepository.save(new PassengerOrderAccessTokenEntity(
+                existing.getId(), replayToken.hash(), now));
+        return new CreateOrderResult(existing.getOrderNo(), existing.getStatus(), replayToken.raw());
+    }
+
     private void verifyToken(RideOrderEntity order, String accessToken) {
-        if (!tokenService.matches(accessToken, order.getPassengerAccessTokenHash())) {
+        boolean primaryToken = tokenService.matches(accessToken, order.getPassengerAccessTokenHash());
+        boolean replayToken = !primaryToken
+                && accessToken != null
+                && !accessToken.isBlank()
+                && passengerTokenRepository.existsByOrderIdAndTokenHash(order.getId(), tokenService.hashOf(accessToken));
+        if (!primaryToken && !replayToken) {
             throw new BusinessException("ORDER_ACCESS_DENIED", "无权访问该订单");
         }
+    }
+
+    private String normalizeIdempotencyKey(String rawKey) {
+        if (rawKey == null || rawKey.isBlank()) return null;
+        String key = rawKey.trim();
+        if (key.length() < 16 || key.length() > 80) {
+            throw new BusinessException("IDEMPOTENCY_KEY_INVALID", "Idempotency-Key 长度必须为 16-80 个字符");
+        }
+        return key;
     }
 
     private String nextOrderNo() {

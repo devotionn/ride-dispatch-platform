@@ -4,6 +4,7 @@ import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.BindException;
@@ -35,6 +36,12 @@ public class ApiExceptionHandler {
         }
         return ResponseEntity.badRequest()
                 .body(new ApiError("VALIDATION_FAILED", message, requestId(request)));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    ResponseEntity<ApiError> handleDataConflict(DataIntegrityViolationException exception, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(new ApiError("DATA_CONFLICT", "数据已被其他请求更新，请重试", requestId(request)));
     }
 
     @ExceptionHandler(Exception.class)

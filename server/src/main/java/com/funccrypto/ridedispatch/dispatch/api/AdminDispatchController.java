@@ -11,6 +11,7 @@ import com.funccrypto.ridedispatch.dispatch.NearbyDriverView;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
@@ -40,15 +41,21 @@ public class AdminDispatchController {
     }
 
     @PostMapping("/{orderNo}/dispatch")
-    DispatchResponse dispatch(
-            @PathVariable String orderNo,
-            @Valid @RequestBody DispatchRequest request,
-            Authentication authentication,
-            HttpServletRequest servletRequest) {
+    DispatchResponse dispatch(@PathVariable String orderNo, @Valid @RequestBody DispatchRequest request,
+            Authentication authentication, HttpServletRequest servletRequest) {
         AuthenticatedPrincipal principal = (AuthenticatedPrincipal) authentication.getPrincipal();
         DispatchAttemptEntity attempt = dispatchService.dispatch(
                 orderNo, request.driverId(), principal.principalId(), requestId(servletRequest));
-        return new DispatchResponse(attempt.getId(), attempt.getTargetDriverId(), attempt.getStatus());
+        return DispatchResponse.from(attempt);
+    }
+
+    @PostMapping("/{orderNo}/reassign")
+    DispatchResponse reassign(@PathVariable String orderNo, @Valid @RequestBody ReassignRequest request,
+            Authentication authentication, HttpServletRequest servletRequest) {
+        AuthenticatedPrincipal principal = (AuthenticatedPrincipal) authentication.getPrincipal();
+        DispatchAttemptEntity attempt = dispatchService.reassignPending(
+                orderNo, request.driverId(), principal.principalId(), request.reason(), requestId(servletRequest));
+        return DispatchResponse.from(attempt);
     }
 
     private String requestId(HttpServletRequest request) {
@@ -56,9 +63,12 @@ public class AdminDispatchController {
         return value == null ? null : value.toString();
     }
 
-    public record DispatchRequest(@NotNull Long driverId) {
-    }
+    public record DispatchRequest(@NotNull Long driverId) {}
+    public record ReassignRequest(@NotNull Long driverId, @Size(max = 255) String reason) {}
 
     public record DispatchResponse(Long attemptId, Long targetDriverId, DispatchAttemptStatus status) {
+        static DispatchResponse from(DispatchAttemptEntity attempt) {
+            return new DispatchResponse(attempt.getId(), attempt.getTargetDriverId(), attempt.getStatus());
+        }
     }
 }

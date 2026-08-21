@@ -23,12 +23,8 @@ public class DispatchService {
     private final AuditService auditService;
     private final Clock clock;
 
-    public DispatchService(
-            RideOrderRepository orderRepository,
-            DriverRepository driverRepository,
-            DispatchAttemptRepository attemptRepository,
-            AuditService auditService,
-            Clock clock) {
+    public DispatchService(RideOrderRepository orderRepository, DriverRepository driverRepository,
+            DispatchAttemptRepository attemptRepository, AuditService auditService, Clock clock) {
         this.orderRepository = orderRepository;
         this.driverRepository = driverRepository;
         this.attemptRepository = attemptRepository;
@@ -43,34 +39,51 @@ public class DispatchService {
         if (order.getStatus() != OrderStatus.PENDING_DISPATCH) {
             throw new BusinessException("ORDER_STATE_CONFLICT", "当前订单不能执行首次派单");
         }
-
-        DriverEntity driver = driverRepository.findById(driverId)
-                .orElseThrow(() -> new BusinessException("DRIVER_NOT_FOUND", "司机不存在"));
-        if (!driver.canReceiveNewOrder(order.getPassengerCount())) {
-            throw new BusinessException("DRIVER_NOT_AVAILABLE", "司机当前不可接此订单");
-        }
-        if (attemptRepository.findFirstByOrderIdAndStatusOrderByDispatchedAtDesc(
-                order.getId(), DispatchAttemptStatus.WAITING).isPresent()) {
+        DriverEntity driver = requireAvailableDriver(driverId, order.getPassengerCount());
+        if (attemptRepository.findFirstByOrderIdAndStatusOrderByDispatchedAtDesc(order.getId(), DispatchAttemptStatus.WAITING).isPresent()) {
             throw new BusinessException("DISPATCH_ALREADY_WAITING", "订单已有待确认司机");
         }
-
         Instant now = clock.instant();
         DispatchAttemptEntity attempt = attemptRepository.save(new DispatchAttemptEntity(
-                order.getId(), driverId, DispatchType.MANUAL, operatorId, now));
+                order.getId(), driver.getId(), DispatchType.MANUAL, operatorId, now));
+        order.markPendingDriverConfirmation(now);
+        auditService.log("ADMIN", operatorId, "ORDER", order.getOrderNo(), "ORDER_DISPATCHED",
+                Map.of("status", OrderStatus.PENDING_DISPATCH),
+                Map.of("status", order.getStatus(), "targetDriverId", driverId), null, requestId, now);
+        return attempt;
+    }
+
+    @Transactional
+    public DispatchAttemptEntity reassignPending(
+            String orderNo, Long newDriverId, Long operatorId, String reason, String requestId) {
+        RideOrderEntity order = orderRepository.findByOrderNoForUpdate(orderNo)
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
+        if (order.getStatus() != OrderStatus.PENDING_DRIVER_CONFIRM) {
+            throw new BusinessException("ORDER_REASSIGN_REQUIRES_PENDING_CONFIRM", "仅待司机确认订单可直接改派");
+        }
+
+        DispatchAttemptEntity waitingSnapshot = attemptRepository
+                .findFirstByOrderIdAndStatusOrderByDispatchedAtDesc(order.getId(), DispatchAttemptStatus.WAITING)
+                .orElseThrow(() -> new BusinessException("DISPATCH_ATTEMPT_NOT_FOUND", "订单没有有效待确认派单"));
+        DispatchAttemptEntity waiting = attemptRepository.findByIdForUpdate(waitingSnapshot.getId())
+                .orElseThrow(() -> new BusinessException("DISPATCH_ATTEMPT_NOT_FOUND", "派单记录不存在"));
+        if (waiting.getTargetDriverId().equals(newDriverId)) {
+            throw new BusinessException("REASSIGN_SAME_DRIVER", "改派司机不能与当前待确认司机相同");
+        }
+
+        DriverEntity newDriver = requireAvailableDriver(newDriverId, order.getPassengerCount());
+        Instant now = clock.instant();
+        Long previousDriverId = waiting.getTargetDriverId();
+        waiting.invalidateByReassign(now);
+        order.returnToPendingDispatchForReassign(now);
+        DispatchAttemptEntity replacement = attemptRepository.save(new DispatchAttemptEntity(
+                order.getId(), newDriver.getId(), DispatchType.REASSIGN, operatorId, now, previousDriverId, reason));
         order.markPendingDriverConfirmation(now);
 
-        auditService.log(
-                "ADMIN",
-                operatorId,
-                "ORDER",
-                order.getOrderNo(),
-                "ORDER_DISPATCHED",
-                Map.of("status", OrderStatus.PENDING_DISPATCH),
-                Map.of("status", order.getStatus(), "targetDriverId", driverId),
-                null,
-                requestId,
-                now);
-        return attempt;
+        auditService.log("ADMIN", operatorId, "ORDER", order.getOrderNo(), "ORDER_REASSIGNED_PENDING_CONFIRM",
+                Map.of("status", OrderStatus.PENDING_DRIVER_CONFIRM, "targetDriverId", previousDriverId),
+                Map.of("status", order.getStatus(), "targetDriverId", newDriverId), reason, requestId, now);
+        return replacement;
     }
 
     @Transactional
@@ -81,52 +94,38 @@ public class DispatchService {
                 .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
         DispatchAttemptEntity attempt = attemptRepository.findByIdForUpdate(attemptId)
                 .orElseThrow(() -> new BusinessException("DISPATCH_ATTEMPT_NOT_FOUND", "派单记录不存在"));
-
         Instant now = clock.instant();
         attempt.accept(driverId, now);
         order.accept(driverId, now);
-        auditService.log(
-                "DRIVER",
-                driverId,
-                "ORDER",
-                order.getOrderNo(),
-                "DISPATCH_ACCEPTED",
+        auditService.log("DRIVER", driverId, "ORDER", order.getOrderNo(), "DISPATCH_ACCEPTED",
                 Map.of("status", OrderStatus.PENDING_DRIVER_CONFIRM),
-                Map.of("status", order.getStatus(), "driverId", driverId),
-                null,
-                requestId,
-                now);
+                Map.of("status", order.getStatus(), "driverId", driverId), null, requestId, now);
         return order.getStatus();
     }
 
     @Transactional
-    public OrderStatus reject(
-            Long attemptId,
-            Long driverId,
-            String reasonCode,
-            String reasonText,
-            String requestId) {
+    public OrderStatus reject(Long attemptId, Long driverId, String reasonCode, String reasonText, String requestId) {
         DispatchAttemptEntity snapshot = attemptRepository.findById(attemptId)
                 .orElseThrow(() -> new BusinessException("DISPATCH_ATTEMPT_NOT_FOUND", "派单记录不存在"));
         RideOrderEntity order = orderRepository.findByIdForUpdate(snapshot.getOrderId())
                 .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
         DispatchAttemptEntity attempt = attemptRepository.findByIdForUpdate(attemptId)
                 .orElseThrow(() -> new BusinessException("DISPATCH_ATTEMPT_NOT_FOUND", "派单记录不存在"));
-
         Instant now = clock.instant();
         attempt.reject(driverId, reasonCode, reasonText, now);
         order.rejectedByTargetDriver(now);
-        auditService.log(
-                "DRIVER",
-                driverId,
-                "ORDER",
-                order.getOrderNo(),
-                "DISPATCH_REJECTED",
-                Map.of("status", OrderStatus.PENDING_DRIVER_CONFIRM),
-                Map.of("status", order.getStatus()),
-                reasonCode == null ? reasonText : reasonCode,
-                requestId,
-                now);
+        auditService.log("DRIVER", driverId, "ORDER", order.getOrderNo(), "DISPATCH_REJECTED",
+                Map.of("status", OrderStatus.PENDING_DRIVER_CONFIRM), Map.of("status", order.getStatus()),
+                reasonCode == null ? reasonText : reasonCode, requestId, now);
         return order.getStatus();
+    }
+
+    private DriverEntity requireAvailableDriver(Long driverId, int passengerCount) {
+        DriverEntity driver = driverRepository.findById(driverId)
+                .orElseThrow(() -> new BusinessException("DRIVER_NOT_FOUND", "司机不存在"));
+        if (!driver.canReceiveNewOrder(passengerCount)) {
+            throw new BusinessException("DRIVER_NOT_AVAILABLE", "司机当前不可接此订单");
+        }
+        return driver;
     }
 }

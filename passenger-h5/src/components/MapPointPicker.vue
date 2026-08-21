@@ -28,12 +28,14 @@ const configured = isAmapConfigured()
 const manual = reactive({ address: '', latitude: '', longitude: '' })
 let session: MapPickerSession | null = null
 let previousBodyOverflow = ''
+let openCycle = 0
 
 const fallbackMode = computed(() => !configured || Boolean(loadError.value))
 
 watch(
   () => props.open,
   async (open) => {
+    const cycle = ++openCycle
     if (!open) {
       destroySession()
       restoreBodyScroll()
@@ -54,18 +56,26 @@ watch(
     await nextTick()
     try {
       if (!mapContainer.value) throw new Error('地图容器初始化失败')
-      session = await createAmapSession(mapContainer.value, selected.value, (point) => {
-        selected.value = point
+      const created = await createAmapSession(mapContainer.value, selected.value, (point) => {
+        if (props.open && cycle === openCycle) selected.value = point
       })
+      if (!props.open || cycle !== openCycle) {
+        created.destroy()
+        return
+      }
+      session = created
     } catch (error) {
-      loadError.value = error instanceof Error ? error.message : '地图加载失败'
+      if (props.open && cycle === openCycle) {
+        loadError.value = error instanceof Error ? error.message : '地图加载失败'
+      }
     } finally {
-      loadingMap.value = false
+      if (cycle === openCycle) loadingMap.value = false
     }
   },
 )
 
 onBeforeUnmount(() => {
+  openCycle += 1
   destroySession()
   restoreBodyScroll()
 })

@@ -176,57 +176,90 @@ public class RideOrderEntity {
         this.updatedAt = now;
     }
 
+    public void advanceTrip(Long actingDriverId, TripStage nextStage, Instant now) {
+        requireCurrentDriver(actingDriverId);
+        if (nextStage == null) {
+            throw new BusinessException("TRIP_STAGE_REQUIRED", "履约阶段不能为空");
+        }
+
+        if (status == OrderStatus.ACCEPTED && tripStage == null && nextStage == TripStage.ARRIVED_PICKUP) {
+            this.status = OrderStatus.IN_SERVICE;
+            this.tripStage = nextStage;
+            this.serviceStartedAt = now;
+            this.updatedAt = now;
+            return;
+        }
+        requireStatus(OrderStatus.IN_SERVICE);
+
+        TripStage expected = switch (tripStage) {
+            case ARRIVED_PICKUP -> TripStage.PASSENGER_ONBOARD;
+            case PASSENGER_ONBOARD -> TripStage.IN_TRANSIT;
+            case IN_TRANSIT -> TripStage.ARRIVED_DESTINATION;
+            case ARRIVED_DESTINATION -> null;
+            case null -> null;
+        };
+        if (expected == null || expected != nextStage) {
+            throw new BusinessException("TRIP_STAGE_CONFLICT", "履约阶段必须按顺序推进");
+        }
+
+        this.tripStage = nextStage;
+        if (nextStage == TripStage.ARRIVED_DESTINATION) {
+            this.arrivedDestinationAt = now;
+        }
+        this.updatedAt = now;
+    }
+
+    public void submitFinalAmount(Long actingDriverId, long amount, Instant now) {
+        requireCurrentDriver(actingDriverId);
+        requireStatus(OrderStatus.IN_SERVICE);
+        if (tripStage != TripStage.ARRIVED_DESTINATION) {
+            throw new BusinessException("ORDER_NOT_ARRIVED_DESTINATION", "到达目的地后才能录入最终金额");
+        }
+        if (amount <= 0) {
+            throw new BusinessException("INVALID_FINAL_AMOUNT", "最终金额必须大于 0");
+        }
+        this.finalAmount = amount;
+        this.status = OrderStatus.PENDING_PAYMENT;
+        this.updatedAt = now;
+    }
+
+    private void requireCurrentDriver(Long actingDriverId) {
+        if (currentDriverId == null || !currentDriverId.equals(actingDriverId)) {
+            throw new BusinessException("ORDER_NOT_CURRENT_DRIVER", "当前订单不属于该司机");
+        }
+    }
+
     private void requireStatus(OrderStatus expected) {
         if (status != expected) {
             throw new BusinessException("ORDER_STATE_CONFLICT", "订单状态已变化，请刷新后重试");
         }
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public String getOrderNo() {
-        return orderNo;
-    }
-
-    public OrderSourceType getSourceType() {
-        return sourceType;
-    }
-
-    public Long getSourceDriverId() {
-        return sourceDriverId;
-    }
-
-    public Long getCurrentDriverId() {
-        return currentDriverId;
-    }
-
-    public String getPassengerAccessTokenHash() {
-        return passengerAccessTokenHash;
-    }
-
-    public BigDecimal getPickupLatitude() {
-        return pickupLatitude;
-    }
-
-    public BigDecimal getPickupLongitude() {
-        return pickupLongitude;
-    }
-
-    public int getPassengerCount() {
-        return passengerCount;
-    }
-
-    public Instant getDepartureAt() {
-        return departureAt;
-    }
-
-    public OrderStatus getStatus() {
-        return status;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+    public Long getId() { return id; }
+    public String getOrderNo() { return orderNo; }
+    public OrderSourceType getSourceType() { return sourceType; }
+    public Long getSourceDriverId() { return sourceDriverId; }
+    public Long getCurrentDriverId() { return currentDriverId; }
+    public String getPassengerMobile() { return passengerMobile; }
+    public String getPassengerAccessTokenHash() { return passengerAccessTokenHash; }
+    public String getPickupAddress() { return pickupAddress; }
+    public BigDecimal getPickupLatitude() { return pickupLatitude; }
+    public BigDecimal getPickupLongitude() { return pickupLongitude; }
+    public String getDestinationAddress() { return destinationAddress; }
+    public BigDecimal getDestinationLatitude() { return destinationLatitude; }
+    public BigDecimal getDestinationLongitude() { return destinationLongitude; }
+    public int getPassengerCount() { return passengerCount; }
+    public Instant getDepartureAt() { return departureAt; }
+    public String getRemark() { return remark; }
+    public OrderStatus getStatus() { return status; }
+    public TripStage getTripStage() { return tripStage; }
+    public Long getFinalAmount() { return finalAmount; }
+    public String getSettlementMethod() { return settlementMethod; }
+    public Instant getAcceptedAt() { return acceptedAt; }
+    public Instant getServiceStartedAt() { return serviceStartedAt; }
+    public Instant getArrivedDestinationAt() { return arrivedDestinationAt; }
+    public Instant getCompletedAt() { return completedAt; }
+    public Instant getCancelledAt() { return cancelledAt; }
+    public Instant getCreatedAt() { return createdAt; }
+    public Instant getUpdatedAt() { return updatedAt; }
 }

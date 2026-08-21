@@ -21,45 +21,32 @@ public class DispatchAttemptEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
     @Column(name = "order_id", nullable = false)
     private Long orderId;
-
     @Column(name = "target_driver_id", nullable = false)
     private Long targetDriverId;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "dispatch_type", nullable = false, length = 40)
     private DispatchType dispatchType;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 40)
     private DispatchAttemptStatus status;
-
     @Column(name = "dispatched_by")
     private Long dispatchedBy;
-
     @Column(name = "dispatched_at", nullable = false)
     private Instant dispatchedAt;
-
     @Column(name = "responded_at")
     private Instant respondedAt;
-
     @Column(name = "reject_reason_code", length = 60)
     private String rejectReasonCode;
-
     @Column(name = "reject_reason_text", length = 255)
     private String rejectReasonText;
-
     @Column(name = "reassign_from_driver_id")
     private Long reassignFromDriverId;
-
     @Column(name = "reassign_reason", length = 255)
     private String reassignReason;
-
     @Column(name = "invalidated_at")
     private Instant invalidatedAt;
-
     @Version
     @Column(nullable = false)
     private long version;
@@ -67,12 +54,7 @@ public class DispatchAttemptEntity {
     protected DispatchAttemptEntity() {
     }
 
-    public DispatchAttemptEntity(
-            Long orderId,
-            Long targetDriverId,
-            DispatchType dispatchType,
-            Long dispatchedBy,
-            Instant dispatchedAt) {
+    public DispatchAttemptEntity(Long orderId, Long targetDriverId, DispatchType dispatchType, Long dispatchedBy, Instant dispatchedAt) {
         this.orderId = orderId;
         this.targetDriverId = targetDriverId;
         this.dispatchType = dispatchType;
@@ -83,18 +65,14 @@ public class DispatchAttemptEntity {
 
     public void accept(Long actingDriverId, Instant now) {
         requireWaiting();
-        if (!targetDriverId.equals(actingDriverId)) {
-            throw new BusinessException("DISPATCH_ATTEMPT_NOT_TARGET_DRIVER", "该派单不属于当前司机");
-        }
+        requireTargetDriver(actingDriverId);
         this.status = DispatchAttemptStatus.ACCEPTED;
         this.respondedAt = now;
     }
 
     public void reject(Long actingDriverId, String reasonCode, String reasonText, Instant now) {
         requireWaiting();
-        if (!targetDriverId.equals(actingDriverId)) {
-            throw new BusinessException("DISPATCH_ATTEMPT_NOT_TARGET_DRIVER", "该派单不属于当前司机");
-        }
+        requireTargetDriver(actingDriverId);
         if ((reasonCode == null || reasonCode.isBlank()) && (reasonText == null || reasonText.isBlank())) {
             throw new BusinessException("REJECT_REASON_REQUIRED", "拒绝订单必须填写原因");
         }
@@ -110,25 +88,26 @@ public class DispatchAttemptEntity {
         this.invalidatedAt = now;
     }
 
+    private void requireTargetDriver(Long actingDriverId) {
+        if (!targetDriverId.equals(actingDriverId)) {
+            throw new BusinessException("DISPATCH_ATTEMPT_NOT_TARGET_DRIVER", "该派单不属于当前司机");
+        }
+    }
+
     private void requireWaiting() {
         if (status != DispatchAttemptStatus.WAITING) {
             throw new BusinessException("DISPATCH_ATTEMPT_EXPIRED", "该派单已失效");
         }
     }
 
-    public Long getId() {
-        return id;
-    }
-
-    public Long getOrderId() {
-        return orderId;
-    }
-
-    public Long getTargetDriverId() {
-        return targetDriverId;
-    }
-
-    public DispatchAttemptStatus getStatus() {
-        return status;
-    }
+    public Long getId() { return id; }
+    public Long getOrderId() { return orderId; }
+    public Long getTargetDriverId() { return targetDriverId; }
+    public DispatchType getDispatchType() { return dispatchType; }
+    public DispatchAttemptStatus getStatus() { return status; }
+    public Long getDispatchedBy() { return dispatchedBy; }
+    public Instant getDispatchedAt() { return dispatchedAt; }
+    public Instant getRespondedAt() { return respondedAt; }
+    public String getRejectReasonCode() { return rejectReasonCode; }
+    public String getRejectReasonText() { return rejectReasonText; }
 }

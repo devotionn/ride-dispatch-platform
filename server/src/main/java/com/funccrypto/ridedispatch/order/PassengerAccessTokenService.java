@@ -17,7 +17,7 @@ public class PassengerAccessTokenService {
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);
         String raw = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        return new GeneratedToken(raw, hash(raw));
+        return new GeneratedToken(raw, hashOf(raw));
     }
 
     public boolean matches(String rawToken, String expectedHash) {
@@ -25,11 +25,12 @@ public class PassengerAccessTokenService {
             return false;
         }
         return MessageDigest.isEqual(
-                hash(rawToken).getBytes(StandardCharsets.US_ASCII),
+                hashOf(rawToken).getBytes(StandardCharsets.US_ASCII),
                 expectedHash.getBytes(StandardCharsets.US_ASCII));
     }
 
-    private String hash(String value) {
+    public String hashOf(String value) {
+        if (value == null) return null;
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256")
                     .digest(value.getBytes(StandardCharsets.UTF_8));

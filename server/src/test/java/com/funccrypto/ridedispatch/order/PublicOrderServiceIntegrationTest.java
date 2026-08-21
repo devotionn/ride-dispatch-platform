@@ -11,6 +11,7 @@ import com.funccrypto.ridedispatch.dispatch.DispatchAttemptStatus;
 import com.funccrypto.ridedispatch.driver.DriverEntity;
 import com.funccrypto.ridedispatch.driver.DriverRepository;
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,15 @@ class PublicOrderServiceIntegrationTest {
     DriverRepository driverRepository;
 
     @BeforeEach
+    void beforeEach() {
+        clean();
+    }
+
+    @AfterEach
+    void afterEach() {
+        clean();
+    }
+
     void clean() {
         passengerTokenRepository.deleteAll();
         attemptRepository.deleteAll();

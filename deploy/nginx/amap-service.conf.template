@@ -1,0 +1,21 @@
+# Include these locations inside the production HTTPS server block.
+# Render ${AMAP_SECURITY_JSCODE} from a secret/environment at deploy time.
+# Never commit the real securityJsCode.
+
+# Optional custom-map style proxy. Keep this block before the generic /_AMapService/ block.
+location /_AMapService/v4/map/styles {
+    set $args "$args&jscode=${AMAP_SECURITY_JSCODE}";
+    proxy_pass https://webapi.amap.com/v4/map/styles;
+    proxy_ssl_server_name on;
+}
+
+# AMap Web Service proxy used by JS API security mode.
+location /_AMapService/ {
+    set $args "$args&jscode=${AMAP_SECURITY_JSCODE}";
+    proxy_pass https://restapi.amap.com/;
+    proxy_ssl_server_name on;
+
+    proxy_connect_timeout 5s;
+    proxy_read_timeout 15s;
+    proxy_send_timeout 15s;
+}

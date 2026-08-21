@@ -4,13 +4,17 @@ import { useRoute, useRouter } from 'vue-router'
 import { closeToast, showFailToast, showLoadingToast, showSuccessToast } from 'vant'
 
 import { getPublicBrand } from '../api/brand'
+import { getPublicDriver } from '../api/drivers'
 import { createOrder } from '../api/orders'
-import type { PlatformBrand } from '../domain/types'
+import type { PlatformBrand, PublicDriverProfile } from '../domain/types'
 import { saveOrderToken } from '../storage/orderToken'
 
 const route = useRoute()
 const router = useRouter()
 const brand = ref<PlatformBrand>({ companyName: '预约用车' })
+const driverProfile = ref<PublicDriverProfile | null>(null)
+const driverError = ref('')
+const driverLoading = ref(false)
 const locating = ref(false)
 const submitting = ref(false)
 
@@ -34,8 +38,9 @@ const driverShortCode = computed(() => {
 const directed = computed(() => Boolean(driverShortCode.value))
 
 watch(
-  () => route.fullPath,
-  () => window.scrollTo({ top: 0 }),
+  driverShortCode,
+  (value) => void loadDriver(value),
+  { immediate: true },
 )
 
 onMounted(async () => {
@@ -46,6 +51,20 @@ onMounted(async () => {
     // Branding failure must not block ordering.
   }
 })
+
+async function loadDriver(shortCode: string): Promise<void> {
+  driverProfile.value = null
+  driverError.value = ''
+  if (!shortCode) return
+  driverLoading.value = true
+  try {
+    driverProfile.value = await getPublicDriver(shortCode)
+  } catch (error) {
+    driverError.value = error instanceof Error ? error.message : '司机二维码已失效'
+  } finally {
+    driverLoading.value = false
+  }
+}
 
 function defaultDepartureTime(): string {
   const value = new Date(Date.now() + 30 * 60 * 1000)
@@ -82,6 +101,10 @@ function coordinateValid(value: string, min: number, max: number): boolean {
 
 async function submit(): Promise<void> {
   if (submitting.value) return
+  if (directed.value && !driverProfile.value) {
+    showFailToast(driverError.value || '正在确认司机信息，请稍后')
+    return
+  }
   if (!form.pickupAddress.trim() || !form.destinationAddress.trim()) {
     showFailToast('请填写上车点和目的地')
     return
@@ -150,8 +173,27 @@ async function submit(): Promise<void> {
       <p class="hero-copy">
         {{ directed ? '本次订单将优先发送给二维码对应司机确认；司机拒绝后转入调度池。' : '提交行程后由调度人员根据上车位置安排合适司机。' }}
       </p>
-      <div v-if="directed" class="binding-chip">已绑定司机入口 · {{ driverShortCode }}</div>
+      <div v-if="directed" class="binding-chip">司机专属二维码入口</div>
     </header>
+
+    <section v-if="directed" class="surface-card detail-card">
+      <div class="section-heading compact">
+        <div>
+          <span class="section-kicker">绑定司机</span>
+          <h2 v-if="driverProfile">{{ driverProfile.name }}</h2>
+          <h2 v-else-if="driverError">二维码不可用</h2>
+          <h2 v-else>正在确认司机…</h2>
+        </div>
+        <van-button v-if="driverError" size="small" plain round :loading="driverLoading" @click="loadDriver(driverShortCode)">重试</van-button>
+      </div>
+      <p v-if="driverError" class="hero-copy" style="color:#d84a4a; margin-top:8px">{{ driverError }}</p>
+      <dl v-if="driverProfile" class="detail-list">
+        <div><dt>司机</dt><dd>{{ driverProfile.name }}</dd></div>
+        <div><dt>车辆</dt><dd>{{ driverProfile.brandModel || '车辆信息待完善' }}</dd></div>
+        <div><dt>车牌</dt><dd>{{ driverProfile.plateNo || '—' }}</dd></div>
+        <div><dt>最大载客</dt><dd>{{ driverProfile.maxPassengers }} 人</dd></div>
+      </dl>
+    </section>
 
     <section class="surface-card form-card">
       <div class="section-heading">
@@ -186,7 +228,7 @@ async function submit(): Promise<void> {
         </van-cell-group>
 
         <div class="submit-area">
-          <van-button block round type="primary" native-type="submit" :loading="submitting" loading-text="提交中…">
+          <van-button block round type="primary" native-type="submit" :loading="submitting" :disabled="directed && !driverProfile" loading-text="提交中…">
             {{ directed ? '提交给该司机确认' : '提交预约' }}
           </van-button>
           <p class="privacy-note">仅收集完成本次用车服务所需的订单信息。</p>

@@ -21,6 +21,13 @@ export interface PlatformBrand {
   logoUrl?: string | null
 }
 
+export interface PublicDriverProfile {
+  name: string
+  plateNo?: string | null
+  brandModel?: string | null
+  maxPassengers: number
+}
+
 export interface GeoPointPayload {
   address: string
   latitude: number

@@ -1,9 +1,17 @@
 import { createApp } from 'vue'
-import Vant from 'vant'
+import { Button, CellGroup, Field, Form, Stepper } from 'vant'
 import 'vant/lib/index.css'
 import './styles.css'
 
 import App from './App.vue'
 import router from './router'
 
-createApp(App).use(router).use(Vant).mount('#app')
+const app = createApp(App)
+
+app.use(router)
+app.use(Button)
+app.use(CellGroup)
+app.use(Field)
+app.use(Form)
+app.use(Stepper)
+app.mount('#app')

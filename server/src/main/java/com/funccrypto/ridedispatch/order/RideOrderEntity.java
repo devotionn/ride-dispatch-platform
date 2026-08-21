@@ -26,6 +26,8 @@ public class RideOrderEntity {
     @Column(name = "current_driver_id") private Long currentDriverId;
     @Column(name = "passenger_mobile", nullable = false, length = 30) private String passengerMobile;
     @Column(name = "passenger_access_token_hash", nullable = false, length = 64) private String passengerAccessTokenHash;
+    @Column(name = "idempotency_key", unique = true, length = 80) private String idempotencyKey;
+    @Column(name = "request_fingerprint", length = 64) private String requestFingerprint;
     @Column(name = "pickup_address", nullable = false, length = 255) private String pickupAddress;
     @Column(name = "pickup_latitude", nullable = false, precision = 10, scale = 7) private BigDecimal pickupLatitude;
     @Column(name = "pickup_longitude", nullable = false, precision = 10, scale = 7) private BigDecimal pickupLongitude;
@@ -54,11 +56,24 @@ public class RideOrderEntity {
             String passengerAccessTokenHash, String pickupAddress, BigDecimal pickupLatitude, BigDecimal pickupLongitude,
             String destinationAddress, BigDecimal destinationLatitude, BigDecimal destinationLongitude, int passengerCount,
             Instant departureAt, String remark, OrderStatus initialStatus, Instant now) {
+        this(orderNo, sourceType, sourceDriverId, passengerMobile, passengerAccessTokenHash,
+                null, null, pickupAddress, pickupLatitude, pickupLongitude,
+                destinationAddress, destinationLatitude, destinationLongitude,
+                passengerCount, departureAt, remark, initialStatus, now);
+    }
+
+    public RideOrderEntity(String orderNo, OrderSourceType sourceType, Long sourceDriverId, String passengerMobile,
+            String passengerAccessTokenHash, String idempotencyKey, String requestFingerprint,
+            String pickupAddress, BigDecimal pickupLatitude, BigDecimal pickupLongitude,
+            String destinationAddress, BigDecimal destinationLatitude, BigDecimal destinationLongitude, int passengerCount,
+            Instant departureAt, String remark, OrderStatus initialStatus, Instant now) {
         this.orderNo = orderNo;
         this.sourceType = sourceType;
         this.sourceDriverId = sourceDriverId;
         this.passengerMobile = passengerMobile;
         this.passengerAccessTokenHash = passengerAccessTokenHash;
+        this.idempotencyKey = idempotencyKey;
+        this.requestFingerprint = requestFingerprint;
         this.pickupAddress = pickupAddress;
         this.pickupLatitude = pickupLatitude;
         this.pickupLongitude = pickupLongitude;
@@ -163,6 +178,8 @@ public class RideOrderEntity {
     public Long getCurrentDriverId() { return currentDriverId; }
     public String getPassengerMobile() { return passengerMobile; }
     public String getPassengerAccessTokenHash() { return passengerAccessTokenHash; }
+    public String getIdempotencyKey() { return idempotencyKey; }
+    public String getRequestFingerprint() { return requestFingerprint; }
     public String getPickupAddress() { return pickupAddress; }
     public BigDecimal getPickupLatitude() { return pickupLatitude; }
     public BigDecimal getPickupLongitude() { return pickupLongitude; }

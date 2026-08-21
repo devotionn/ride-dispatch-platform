@@ -1,0 +1,121 @@
+export type AdminAuthority = 'ROLE_ADMIN' | 'ROLE_DISPATCHER' | 'ROLE_FINANCE'
+export type OrderSourceType = 'PUBLIC_H5' | 'DRIVER_QR' | 'ADMIN_CREATED'
+export type OrderStatus =
+  | 'PENDING_DISPATCH'
+  | 'PENDING_DRIVER_CONFIRM'
+  | 'ACCEPTED'
+  | 'IN_SERVICE'
+  | 'PENDING_PAYMENT'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'EXCEPTION'
+export type TripStage = 'ARRIVED_PICKUP' | 'PASSENGER_ONBOARD' | 'IN_TRANSIT' | 'ARRIVED_DESTINATION'
+
+export interface LoginResponse {
+  accessToken: string
+  expiresAt: string
+  authority: AdminAuthority
+}
+
+export interface AdminSession extends LoginResponse {}
+
+export interface DriverView {
+  id: number
+  driverNo: string
+  name: string
+  mobile: string
+  accountStatus: 'ACTIVE' | 'DISABLED'
+  workStatus: 'AVAILABLE' | 'PAUSED' | 'OFFLINE'
+  maxPassengers: number
+  availablePassengers: number
+  qrShortCode: string
+  vehicleId?: number | null
+  plateNo?: string | null
+  brandModel?: string | null
+}
+
+export interface OrderSummary {
+  orderNo: string
+  sourceType: OrderSourceType
+  status: OrderStatus
+  currentDriverId?: number | null
+  pickupAddress: string
+  destinationAddress: string
+  passengerCount: number
+  departureAt: string
+  createdAt: string
+}
+
+export interface PagedOrders {
+  content: OrderSummary[]
+  page: number
+  size: number
+  totalElements: number
+  totalPages: number
+}
+
+export interface OrderView extends OrderSummary {
+  sourceDriverId?: number | null
+  passengerMobile: string
+  pickupLatitude: number
+  pickupLongitude: number
+  destinationLatitude: number
+  destinationLongitude: number
+  remark?: string | null
+  tripStage?: TripStage | null
+  finalAmount?: number | null
+  acceptedAt?: string | null
+  serviceStartedAt?: string | null
+  arrivedDestinationAt?: string | null
+  cancelledAt?: string | null
+  updatedAt: string
+}
+
+export interface DispatchAttemptView {
+  attemptId: number
+  targetDriverId: number
+  dispatchType: 'DIRECT_QR' | 'MANUAL' | 'REASSIGN' | 'FORCE_REASSIGN'
+  status: 'WAITING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED_BY_REASSIGN' | 'CANCELLED_BY_ORDER'
+  dispatchedBy?: number | null
+  dispatchedAt: string
+  respondedAt?: string | null
+  rejectReasonCode?: string | null
+  rejectReasonText?: string | null
+}
+
+export interface ProgressEventView {
+  id: number
+  driverId: number
+  stage: TripStage
+  occurredAt: string
+}
+
+export interface OrderDetail {
+  order: OrderView
+  dispatchAttempts: DispatchAttemptView[]
+  progressEvents: ProgressEventView[]
+}
+
+export interface NearbyDriver {
+  driverId: number
+  driverNo: string
+  driverName: string
+  availablePassengers: number
+  straightLineDistanceKm: number
+  locatedAt: string
+}
+
+export interface GeoPointPayload {
+  address: string
+  latitude: number
+  longitude: number
+}
+
+export interface AdminCreateOrderPayload {
+  pickup: GeoPointPayload
+  destination: GeoPointPayload
+  passengerCount: number
+  departureAt: string
+  mobile: string
+  remark?: string
+}

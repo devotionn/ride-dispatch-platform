@@ -41,3 +41,17 @@ export function reassignOrder(orderNo: string, driverId: number, reason?: string
     body: JSON.stringify({ driverId, reason: reason || undefined }),
   })
 }
+
+export function forceCancelOrder(orderNo: string, reason: string): Promise<{ status: OrderStatus }> {
+  return apiRequest(`/api/v1/admin/orders/${encodeURIComponent(orderNo)}/force-cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export function forceReassignOrder(orderNo: string, driverId: number, reason: string): Promise<{ attemptId: number; targetDriverId: number; status: string }> {
+  return apiRequest(`/api/v1/admin/orders/${encodeURIComponent(orderNo)}/force-reassign`, {
+    method: 'POST',
+    body: JSON.stringify({ driverId, reason }),
+  })
+}

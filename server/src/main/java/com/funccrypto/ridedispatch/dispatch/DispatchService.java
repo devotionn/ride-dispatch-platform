@@ -2,6 +2,7 @@ package com.funccrypto.ridedispatch.dispatch;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.funccrypto.ridedispatch.audit.AuditService;
@@ -60,6 +61,9 @@ public class DispatchService {
                 .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
         if (order.getStatus() != OrderStatus.PENDING_DRIVER_CONFIRM) {
             throw new BusinessException("ORDER_REASSIGN_REQUIRES_PENDING_CONFIRM", "仅待司机确认订单可直接改派");
+        }
+        if (order.getCurrentDriverId() != null) {
+            throw new BusinessException("ORDER_REASSIGN_BLOCKED_BY_FORCE_REASSIGN", "强制改派确认中，不能普通改派");
         }
 
         DispatchAttemptEntity waitingSnapshot = attemptRepository
@@ -120,6 +124,86 @@ public class DispatchService {
         return order.getStatus();
     }
 
+    @Transactional
+    public OrderStatus forceCancel(
+            String orderNo, String reason, Long operatorId, String requestId) {
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException("FORCE_ACTION_REASON_REQUIRED", "强制操作必须填写原因");
+        }
+        RideOrderEntity order = orderRepository.findByOrderNoForUpdate(orderNo)
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
+        OrderStatus beforeStatus = order.getStatus();
+        Long beforeDriverId = order.getCurrentDriverId();
+        Instant now = clock.instant();
+        order.forceCancelAfterAcceptance(now);
+        invalidateWaitingAttempt(order, now);
+        auditService.log("ADMIN", operatorId, "ORDER", orderNo, "ORDER_FORCE_CANCELLED",
+                Map.of("status", beforeStatus.name(), "currentDriverId", String.valueOf(beforeDriverId)),
+                new LinkedHashMap<>(Map.of("status", order.getStatus().name())) {{ put("currentDriverId", null); }}, reason, requestId, now);
+        return order.getStatus();
+    }
+
+    @Transactional
+    public DispatchAttemptEntity forceReassign(
+            String orderNo, Long newDriverId, String reason, Long operatorId, String requestId) {
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException("FORCE_ACTION_REASON_REQUIRED", "强制操作必须填写原因");
+        }
+        RideOrderEntity order = orderRepository.findByOrderNoForUpdate(orderNo)
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
+        DriverEntity newDriver = requireAvailableDriver(newDriverId, order.getPassengerCount());
+        OrderStatus beforeStatus = order.getStatus();
+        Long previousDriverId = order.getCurrentDriverId();
+        if (previousDriverId == null || previousDriverId.equals(newDriver.getId())) {
+            throw new BusinessException("ORDER_FORCE_REASSIGN_SAME_DRIVER", "改派司机不能与当前责任司机相同");
+        }
+
+        Instant now = clock.instant();
+        order.beginForceReassignment(newDriver.getId(), now);
+        DispatchAttemptEntity replacement = attemptRepository.save(new DispatchAttemptEntity(
+                order.getId(), newDriver.getId(), DispatchType.FORCE_REASSIGN,
+                operatorId, now, previousDriverId, reason));
+
+        auditService.log("ADMIN", operatorId, "ORDER", orderNo, "ORDER_FORCE_REASSIGN_STARTED",
+                Map.of("status", beforeStatus.name(), "currentDriverId", previousDriverId),
+                Map.of("status", order.getStatus().name(), "pendingDriverId", newDriver.getId(),
+                        "responsibleDriverId", previousDriverId),
+                reason, requestId, now);
+        return replacement;
+    }
+
+    @Transactional
+    public OrderStatus rollbackRejectedForcedReassignment(
+            Long attemptId, Long driverId, String reasonCode, String reasonText, String requestId) {
+        DispatchAttemptEntity snapshot = attemptRepository.findById(attemptId)
+                .orElseThrow(() -> new BusinessException("DISPATCH_ATTEMPT_NOT_FOUND", "派单记录不存在"));
+        RideOrderEntity order = orderRepository.findByIdForUpdate(snapshot.getOrderId())
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
+        DispatchAttemptEntity attempt = attemptRepository.findByIdForUpdate(attemptId)
+                .orElseThrow(() -> new BusinessException("DISPATCH_ATTEMPT_NOT_FOUND", "派单记录不存在"));
+        if (attempt.getDispatchType() != DispatchType.FORCE_REASSIGN) {
+            return reject(snapshot.getId(), driverId, reasonCode, reasonText, requestId);
+        }
+        Instant now = clock.instant();
+        attempt.reject(driverId, reasonCode, reasonText, now);
+        Long previousDriverId = attempt.getReassignFromDriverId();
+        if (previousDriverId == null || !previousDriverId.equals(order.getCurrentDriverId())) {
+            throw new BusinessException("ORDER_FORCE_REASSIGN_STATE_CONFLICT", "强制改派状态已变化，请刷新后重试");
+        }
+        order.restoreForceReassignment(previousDriverId, now);
+        auditService.log("DRIVER", driverId, "ORDER", order.getOrderNo(), "ORDER_FORCE_REASSIGN_REJECTED",
+                Map.of("status", OrderStatus.PENDING_DRIVER_CONFIRM.name(),
+                        "pendingDriverId", driverId, "responsibleDriverId", previousDriverId),
+                Map.of("status", order.getStatus().name(), "currentDriverId", previousDriverId),
+                reasonCode == null ? reasonText : reasonCode, requestId, now);
+        return order.getStatus();
+    }
+    private void invalidateWaitingAttempt(RideOrderEntity order, Instant now) {
+        attemptRepository.findFirstByOrderIdAndStatusOrderByDispatchedAtDesc(
+                        order.getId(), DispatchAttemptStatus.WAITING)
+                .ifPresent(snapshot -> attemptRepository.findByIdForUpdate(snapshot.getId())
+                        .ifPresent(attempt -> attempt.invalidateByOrder(now)));
+    }
     private DriverEntity requireAvailableDriver(Long driverId, int passengerCount) {
         DriverEntity driver = driverRepository.findById(driverId)
                 .orElseThrow(() -> new BusinessException("DRIVER_NOT_FOUND", "司机不存在"));

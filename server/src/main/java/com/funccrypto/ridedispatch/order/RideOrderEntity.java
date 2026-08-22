@@ -114,7 +114,41 @@ public class RideOrderEntity {
         this.updatedAt = now;
     }
 
+    public void forceCancelAfterAcceptance(Instant now) {
+        if (status != OrderStatus.ACCEPTED && status != OrderStatus.IN_SERVICE) {
+            throw new BusinessException("ORDER_FORCE_CANCEL_REQUIRES_ACTIVE_DRIVER", "仅已接单或服务中订单可强制取消");
+        }
+        this.status = OrderStatus.CANCELLED;
+        this.cancelledAt = now;
+        this.updatedAt = now;
+    }
+
+    public void beginForceReassignment(Long newDriverId, Instant now) {
+        if (status != OrderStatus.ACCEPTED && status != OrderStatus.IN_SERVICE) {
+            throw new BusinessException("ORDER_FORCE_REASSIGN_REQUIRES_ACTIVE_DRIVER", "仅已接单或服务中订单可强制改派");
+        }
+        if (newDriverId == null || newDriverId.equals(currentDriverId)) {
+            throw new BusinessException("ORDER_FORCE_REASSIGN_SAME_DRIVER", "改派司机不能与当前责任司机相同");
+        }
+        this.status = OrderStatus.PENDING_DRIVER_CONFIRM;
+        this.tripStage = null;
+        this.serviceStartedAt = null;
+        this.arrivedDestinationAt = null;
+        this.updatedAt = now;
+    }
+
+    public void restoreForceReassignment(Long previousDriverId, Instant now) {
+        if (status != OrderStatus.PENDING_DRIVER_CONFIRM || tripStage != null) {
+            throw new BusinessException("ORDER_FORCE_REASSIGN_NOT_WAITING", "强制改派已变化，不能回滚");
+        }
+        this.currentDriverId = previousDriverId;
+        this.status = OrderStatus.ACCEPTED;
+        this.updatedAt = now;
+    }
     public void cancelBeforeAcceptance(Instant now) {
+        if (status == OrderStatus.PENDING_DRIVER_CONFIRM && currentDriverId != null) {
+            throw new BusinessException("ORDER_FORCED_REASSIGN_IN_PROGRESS", "强制改派确认中，乘客不能取消");
+        }
         if (status != OrderStatus.PENDING_DISPATCH && status != OrderStatus.PENDING_DRIVER_CONFIRM) {
             throw new BusinessException("ORDER_CANNOT_BE_CANCELLED", "司机接单后乘客不能自行取消");
         }

@@ -40,7 +40,7 @@ public class DriverDispatchController {
             @Valid @RequestBody RejectRequest request,
             Authentication authentication,
             HttpServletRequest servletRequest) {
-        OrderStatus status = dispatchService.reject(
+        OrderStatus status = dispatchService.rollbackRejectedForcedReassignment(
                 attemptId,
                 driverId(authentication),
                 request.reasonCode(),

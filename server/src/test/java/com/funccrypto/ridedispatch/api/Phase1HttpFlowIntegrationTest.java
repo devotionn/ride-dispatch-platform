@@ -169,6 +169,8 @@ class Phase1HttpFlowIntegrationTest {
         JsonNode detail = getJson("/api/v1/admin/orders/" + orderNo, adminToken);
         assertThat(detail.get("dispatchAttempts").size()).isEqualTo(1);
         assertThat(detail.get("progressEvents").size()).isEqualTo(4);
+        assertThat(detail.get("operationLogs").size()).isGreaterThanOrEqualTo(7);
+        assertThat(detail.get("operationLogs").get(0).get("action").asText()).isEqualTo("ORDER_DISPATCHED");
 
         var order = orderRepository.findByOrderNo(orderNo).orElseThrow();
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
@@ -176,6 +178,37 @@ class Phase1HttpFlowIntegrationTest {
         assertThat(order.getFinalAmount()).isEqualTo(12800L);
     }
 
+    @Test
+    void adminBrandApiCoversReadUpdateAndDispatcherPermission() throws Exception {
+        AdminUserEntity admin = adminRepository.save(new AdminUserEntity(
+                "brand-admin", passwordEncoder.encode("admin-password"), "品牌管理员", AdminRole.ADMIN, clock.instant()));
+        String adminToken = login("/api/v1/auth/admin/login", "brand-admin", "admin-password");
+        String dispatcherToken = createDispatcherToken();
+
+        JsonNode updated = json(putJson("/api/v1/admin/brand", adminToken, """
+                {
+                  "companyName":"真实车队",
+                  "logoUrl":"https://cdn.example.com/logo.png"
+                }
+                """));
+        assertThat(updated.get("companyName").asText()).isEqualTo("真实车队");
+        assertThat(updated.get("logoUrl").asText()).isEqualTo("https://cdn.example.com/logo.png");
+
+        JsonNode publicBrand = json(mockMvc.perform(get("/api/v1/public/brand"))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString());
+        assertThat(publicBrand.get("companyName").asText()).isEqualTo("真实车队");
+
+        JsonNode dispatcherView = getJson("/api/v1/admin/brand", dispatcherToken);
+        assertThat(dispatcherView.get("updatedAt").asText()).startsWith(updated.get("updatedAt").asText().substring(0, 19));
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put("/api/v1/admin/brand")
+                        .header("Authorization", bearer(dispatcherToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"companyName\":\"未授权修改\"}"))
+                .andExpect(status().isForbidden());
+    }
     private JsonNode advance(String orderNo, String token, TripStage stage) throws Exception {
         return json(postJson(
                 "/api/v1/driver/orders/" + orderNo + "/progress",
@@ -232,6 +265,21 @@ class Phase1HttpFlowIntegrationTest {
                 """.formatted(departureAt, mobile);
     }
 
+    private String putJson(String path, String accessToken, String content) throws Exception {
+        return mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+                        .put(path)
+                        .header("Authorization", bearer(accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(content))
+                .andExpect(status().is2xxSuccessful())
+                .andReturn().getResponse().getContentAsString();
+    }
+
+    private String createDispatcherToken() throws Exception {
+        adminRepository.save(new AdminUserEntity(
+                "brand-dispatcher", passwordEncoder.encode("dispatcher-password"), "调度员", AdminRole.DISPATCHER, clock.instant()));
+        return login("/api/v1/auth/admin/login", "brand-dispatcher", "dispatcher-password");
+    }
     private JsonNode json(String content) throws Exception { return jsonMapper.readTree(content); }
     private String bearer(String token) { return "Bearer " + token; }
 

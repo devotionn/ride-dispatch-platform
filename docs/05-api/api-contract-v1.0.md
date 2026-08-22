@@ -202,10 +202,9 @@ HTTP 可使用 `Idempotency-Key`，服务端保存 key 与结果映射并限制�
 ## 7. 管理后台 API
 
 ### 7.1 品牌
-
-- `GET /admin/brand`
-- `PUT /admin/brand`
-- `POST /admin/brand/logo`
+- `GET /admin/brand`：管理员 / 调度员可读。
+- `PUT /admin/brand`：仅管理员；当前实现返回 `id`、`companyName`、`logoUrl`、`updatedAt`。
+- `POST /admin/brand/logo`：未实现；当前 Admin 页面使用 Logo URL 配置。
 
 ### 7.2 司机
 
@@ -242,10 +241,18 @@ HTTP 可使用 `Idempotency-Key`，服务端保存 key 与结果映射并限制�
 
 ### 7.6 改派/强制改派
 
-`POST /admin/orders/{orderNo}/reassign`
+- 待司机确认：`POST /admin/orders/{orderNo}/reassign`。
+- 已接单/执行中强制改派：`POST /admin/orders/{orderNo}/force-reassign`，必须携带 `driverId` 和不可空白 `reason`。
 
-已接单/执行中必须携带原因，并由后端判断是否属于强制操作。
+当前实现语义：发起强制改派后，订单进入待新司机确认；确认前，原 `currentDriverId` 保持为责任司机。新司机拒绝时回滚到原司机负责；接受时完成责任交接。该语义是保守实现，PRD V1.4 CHANGE-002 仍需甲方正式确认。
 
+### 7.6.1 强制取消
+
+已接单/服务中订单使用：
+
+`POST /admin/orders/{orderNo}/force-cancel`
+
+必须携带不可空白 `reason`。系统取消订单、失效等待中的派单尝试并写入 OperationLog。强制改派待新司机确认期间，乘客不能自行取消。
 ### 7.7 支付与线下修正
 
 - `GET /admin/payments`

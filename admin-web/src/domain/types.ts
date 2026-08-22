@@ -94,6 +94,7 @@ export interface OrderDetail {
   order: OrderView
   dispatchAttempts: DispatchAttemptView[]
   progressEvents: ProgressEventView[]
+  operationLogs: OperationLogView[]
 }
 
 export interface NearbyDriver {
@@ -118,4 +119,23 @@ export interface AdminCreateOrderPayload {
   departureAt: string
   mobile: string
   remark?: string
+}
+
+export interface PlatformBrand {
+  companyName: string
+  logoUrl?: string | null
+  updatedAt: string
+  updatedBy?: number | null
+}
+
+export interface OperationLogView {
+  id: number
+  operatorType: string
+  operatorId?: number | null
+  action: string
+  beforeJson?: string | null
+  afterJson?: string | null
+  reason?: string | null
+  requestId?: string | null
+  createdAt: string
 }

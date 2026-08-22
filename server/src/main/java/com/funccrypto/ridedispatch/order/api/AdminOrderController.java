@@ -5,9 +5,12 @@ import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import com.funccrypto.ridedispatch.audit.OperationLogEntity;
 import com.funccrypto.ridedispatch.auth.AuthenticatedPrincipal;
 import com.funccrypto.ridedispatch.dispatch.DispatchAttemptEntity;
+import com.funccrypto.ridedispatch.dispatch.DispatchAttemptRepository;
 import com.funccrypto.ridedispatch.dispatch.DispatchAttemptStatus;
+import com.funccrypto.ridedispatch.dispatch.DispatchService;
 import com.funccrypto.ridedispatch.dispatch.DispatchType;
 import com.funccrypto.ridedispatch.order.OrderManagementService;
 import com.funccrypto.ridedispatch.order.OrderProgressEventEntity;
@@ -43,9 +46,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class AdminOrderController {
 
     private final OrderManagementService service;
+    private final DispatchService dispatchService;
 
-    public AdminOrderController(OrderManagementService service) {
+    public AdminOrderController(OrderManagementService service, DispatchService dispatchService) {
         this.service = service;
+        this.dispatchService = dispatchService;
     }
 
     @PostMapping
@@ -94,9 +99,33 @@ public class AdminOrderController {
         return new DetailResponse(
                 OrderView.from(detail.order()),
                 detail.dispatchAttempts().stream().map(DispatchView::from).toList(),
-                detail.progressEvents().stream().map(ProgressView::from).toList());
+                detail.progressEvents().stream().map(ProgressView::from).toList(),
+                detail.operationLogs().stream().map(OperationLogView::from).toList());
     }
 
+    @PostMapping("/{orderNo}/force-cancel")
+    OrderStatus forceCancel(
+            @PathVariable String orderNo,
+            @Valid @RequestBody ForceActionRequest request,
+            Authentication authentication,
+            HttpServletRequest servletRequest) {
+
+        return dispatchService.forceCancel(
+                orderNo, request.reason(), operatorId(authentication), requestId(servletRequest));
+    }
+
+    @PostMapping("/{orderNo}/force-reassign")
+    com.funccrypto.ridedispatch.dispatch.api.AdminDispatchController.DispatchResponse forceReassign(
+            @PathVariable String orderNo,
+            @Valid @RequestBody ForceReassignRequest request,
+            Authentication authentication,
+            HttpServletRequest servletRequest) {
+        var attempt = dispatchService.forceReassign(
+                orderNo, request.driverId(), request.reason(),
+                operatorId(authentication), requestId(servletRequest));
+        return new com.funccrypto.ridedispatch.dispatch.api.AdminDispatchController.DispatchResponse(
+                attempt.getId(), attempt.getTargetDriverId(), attempt.getStatus());
+    }
     private Long operatorId(Authentication authentication) {
         return ((AuthenticatedPrincipal) authentication.getPrincipal()).principalId();
     }
@@ -106,6 +135,13 @@ public class AdminOrderController {
         return value == null ? null : value.toString();
     }
 
+    public record ForceActionRequest(@NotBlank @Size(max = 500) String reason) {
+    }
+
+    public record ForceReassignRequest(
+            @NotNull Long driverId,
+            @NotBlank @Size(max = 500) String reason) {
+    }
     public record CreateRequest(
             @NotNull @Valid GeoPointRequest pickup,
             @NotNull @Valid GeoPointRequest destination,
@@ -198,6 +234,28 @@ public class AdminOrderController {
         }
     }
 
-    public record DetailResponse(OrderView order, List<DispatchView> dispatchAttempts, List<ProgressView> progressEvents) {
+    public record OperationLogView(
+            Long id,
+            String operatorType,
+            Long operatorId,
+            String action,
+            String beforeJson,
+            String afterJson,
+            String reason,
+            String requestId,
+            Instant createdAt) {
+        static OperationLogView from(OperationLogEntity log) {
+            return new OperationLogView(
+                    log.getId(), log.getOperatorType(), log.getOperatorId(), log.getAction(),
+                    log.getBeforeJson(), log.getAfterJson(), log.getReason(), log.getRequestId(),
+                    log.getCreatedAt());
+        }
+    }
+
+    public record DetailResponse(
+            OrderView order,
+            List<DispatchView> dispatchAttempts,
+            List<ProgressView> progressEvents,
+            List<OperationLogView> operationLogs) {
     }
 }

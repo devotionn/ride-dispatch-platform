@@ -8,6 +8,8 @@ import java.util.Map;
 import java.util.UUID;
 
 import com.funccrypto.ridedispatch.audit.AuditService;
+import com.funccrypto.ridedispatch.audit.OperationLogEntity;
+import com.funccrypto.ridedispatch.audit.OperationLogRepository;
 import com.funccrypto.ridedispatch.dispatch.DispatchAttemptEntity;
 import com.funccrypto.ridedispatch.dispatch.DispatchAttemptRepository;
 import com.funccrypto.ridedispatch.dispatch.DispatchAttemptStatus;
@@ -31,6 +33,7 @@ public class OrderManagementService {
     private final OrderProgressEventRepository progressRepository;
     private final PassengerAccessTokenService tokenService;
     private final AuditService auditService;
+    private final OperationLogRepository operationLogRepository;
     private final Clock clock;
 
     public OrderManagementService(
@@ -39,12 +42,14 @@ public class OrderManagementService {
             OrderProgressEventRepository progressRepository,
             PassengerAccessTokenService tokenService,
             AuditService auditService,
+            OperationLogRepository operationLogRepository,
             Clock clock) {
         this.orderRepository = orderRepository;
         this.attemptRepository = attemptRepository;
         this.progressRepository = progressRepository;
         this.tokenService = tokenService;
         this.auditService = auditService;
+        this.operationLogRepository = operationLogRepository;
         this.clock = clock;
     }
 
@@ -97,7 +102,8 @@ public class OrderManagementService {
         return new OrderDetail(
                 order,
                 attemptRepository.findByOrderIdOrderByDispatchedAtDesc(order.getId()),
-                progressRepository.findByOrderIdOrderByOccurredAtAsc(order.getId()));
+                progressRepository.findByOrderIdOrderByOccurredAtAsc(order.getId()),
+                operationLogRepository.findByObjectTypeAndObjectIdOrderByCreatedAtAscIdAsc("ORDER", order.getOrderNo()));
     }
 
     @Transactional(readOnly = true)
@@ -183,7 +189,8 @@ public class OrderManagementService {
     public record OrderDetail(
             RideOrderEntity order,
             List<DispatchAttemptEntity> dispatchAttempts,
-            List<OrderProgressEventEntity> progressEvents) {
+            List<OrderProgressEventEntity> progressEvents,
+            List<OperationLogEntity> operationLogs) {
     }
 
     public record DriverPendingDispatch(DispatchAttemptEntity attempt, RideOrderEntity order) {

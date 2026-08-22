@@ -5,6 +5,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   createAdminOrder,
   dispatchOrder,
+  forceCancelOrder,
+  forceReassignOrder,
   getOrderDetail,
   listNearbyDrivers,
   listOrders,
@@ -17,6 +19,7 @@ import type {
   OrderSourceType,
   OrderStatus,
   OrderSummary,
+  OperationLogView,
   TripStage,
 } from '../domain/types'
 
@@ -34,6 +37,7 @@ const detail = ref<OrderDetail | null>(null)
 const nearbyLoading = ref(false)
 const nearbyDrivers = ref<NearbyDriver[]>([])
 const actingDriverId = ref<number | null>(null)
+const forceActing = ref(false)
 
 const createOpen = ref(false)
 const createLoading = ref(false)
@@ -63,6 +67,8 @@ const statusOptions: Array<{ value: OrderStatus; label: string }> = [
 
 const canDispatch = computed(() => detail.value?.order.status === 'PENDING_DISPATCH')
 const canReassign = computed(() => detail.value?.order.status === 'PENDING_DRIVER_CONFIRM')
+const canForceOperate = computed(() => ['ACCEPTED', 'IN_SERVICE'].includes(detail.value?.order.status ?? ''))
+const forcedWaiting = computed(() => canReassign && currentWaitingDriverId.value !== null && detail.value?.order.currentDriverId !== null)
 const currentWaitingDriverId = computed(() => {
   const attempts = detail.value?.dispatchAttempts ?? []
   return [...attempts].reverse().find((item) => item.status === 'WAITING')?.targetDriverId ?? null
@@ -101,7 +107,9 @@ async function openDetail(orderNo: string): Promise<void> {
   nearbyDrivers.value = []
   try {
     detail.value = await getOrderDetail(orderNo)
-    if (detail.value.order.status === 'PENDING_DISPATCH' || detail.value.order.status === 'PENDING_DRIVER_CONFIRM') {
+    if (detail.value.order.status === 'PENDING_DISPATCH'
+      || detail.value.order.status === 'PENDING_DRIVER_CONFIRM'
+      || canForceOperate.value) {
       await loadNearby(orderNo)
     }
   } catch (error) {
@@ -171,6 +179,65 @@ async function assign(driver: NearbyDriver): Promise<void> {
   }
 }
 
+async function forceReassign(driver: NearbyDriver): Promise<void> {
+  const orderNo = detail.value?.order.orderNo
+  if (!orderNo || forceActing.value || !canForceOperate.value) return
+  if (detail.value?.order.currentDriverId === driver.driverId) {
+    ElMessage.warning('该司机已是当前责任司机')
+    return
+  }
+  forceActing.value = true
+  try {
+    const { value } = await ElMessageBox.prompt(
+      `将已接单/执行中订单改派给 ${driver.driverName}（${driver.driverNo}）。必须填写原因。`,
+      '强制改派确认',
+      {
+        confirmButtonText: '开始强制改派',
+        cancelButtonText: '取消',
+        inputPlaceholder: '例如：车辆故障、乘客要求更换',
+        inputValidator: (input: string) => Boolean(input.trim()) || '必须填写强制改派原因',
+        inputType: 'textarea',
+      },
+    )
+    await forceReassignOrder(orderNo, driver.driverId, value!.trim())
+    ElMessage.success('强制改派已发起，原司机仍暂时负责，等待新司机确认')
+    await Promise.all([refreshDetail(), loadOrders()])
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(messageOf(error))
+  } finally {
+    forceActing.value = false
+  }
+}
+
+async function forceCancel(): Promise<void> {
+  const orderNo = detail.value?.order.orderNo
+  if (!orderNo || forceActing.value || !canForceOperate.value) return
+  forceActing.value = true
+  try {
+    const { value } = await ElMessageBox.prompt(
+      `强制取消订单 ${orderNo}。必须填写原因，操作会写入审计日志。`,
+      '强制取消确认',
+      {
+        confirmButtonText: '强制取消',
+        cancelButtonText: '取消',
+        type: 'warning',
+        inputPlaceholder: '例如：乘客临时取消、调度异常处理',
+        inputValidator: (input: string) => Boolean(input.trim()) || '必须填写强制取消原因',
+        inputType: 'textarea',
+      },
+    )
+    await forceCancelOrder(orderNo, value!.trim())
+    ElMessage.success('订单已强制取消')
+    nearbyDrivers.value = []
+    await Promise.all([refreshDetail(), loadOrders()])
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(messageOf(error))
+  } finally {
+    forceActing.value = false
+  }
+}
 async function submitAdminOrder(): Promise<void> {
   if (!createForm.pickupAddress.trim() || !createForm.destinationAddress.trim()) {
     ElMessage.warning('请填写上车点和目的地')
@@ -288,6 +355,36 @@ function fullTime(value?: string | null): string {
   }).format(date)
 }
 
+const auditActionLabels: Record<string, string> = {
+  ORDER_CREATED_BY_ADMIN: '后台建单',
+  ORDER_DISPATCHED: '人工派单',
+  ORDER_REASSIGNED_PENDING_CONFIRM: '待确认改派',
+  DISPATCH_ACCEPTED: '司机接受',
+  DISPATCH_REJECTED: '司机拒绝',
+  ORDER_FORCE_CANCELLED: '强制取消',
+  ORDER_FORCE_REASSIGN_STARTED: '发起强制改派',
+  ORDER_FORCE_REASSIGN_REJECTED: '拒绝强制改派',
+  ORDER_PROGRESS_ADVANCED: '履约推进',
+  ORDER_FINAL_AMOUNT_SUBMITTED: '录入最终金额',
+}
+
+function auditActionLabel(action: string): string {
+  return auditActionLabels[action] ?? action
+}
+
+function operatorLabel(log: OperationLogView): string {
+  const type = log.operatorType === 'ADMIN' ? '后台' : log.operatorType === 'DRIVER' ? '司机' : log.operatorType
+  return `${type} #${log.operatorId ?? '—'}`
+}
+
+function snapshotOf(value?: string | null): string {
+  if (!value) return ''
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
+}
 function money(cents?: number | null): string {
   return cents == null ? '—' : `¥ ${(cents / 100).toFixed(2)}`
 }
@@ -357,6 +454,7 @@ function messageOf(error: unknown): string {
           <div><span>订单号</span><strong>{{ detail.order.orderNo }}</strong></div>
           <el-tag :type="statusType(detail.order.status)" size="large">{{ statusLabel(detail.order.status) }}</el-tag>
           <el-button plain @click="refreshDetail">刷新</el-button>
+          <el-button v-if="canForceOperate" type="danger" plain :loading="forceActing" @click="forceCancel">强制取消</el-button>
         </div>
 
         <div class="detail-grid">
@@ -376,12 +474,13 @@ function messageOf(error: unknown): string {
           <div><span class="point-b">B</span><section><small>目的地</small><strong>{{ detail.order.destinationAddress }}</strong><em>{{ detail.order.destinationLongitude }}, {{ detail.order.destinationLatitude }}</em></section></div>
         </div>
 
-        <section v-if="canDispatch || canReassign" class="drawer-section dispatch-section">
+        <section v-if="canDispatch || canReassign || canForceOperate" class="drawer-section dispatch-section">
           <div class="drawer-section-heading">
-            <div><span>人工调度</span><h3>{{ canDispatch ? '选择附近司机派单' : '等待司机确认，可直接改派' }}</h3></div>
+            <div><span>人工调度</span><h3>{{ canDispatch ? '选择附近司机派单' : canForceOperate ? '选择附近司机强制改派' : '等待司机确认，可直接改派' }}</h3></div>
             <el-button size="small" :loading="nearbyLoading" @click="loadNearby(detail.order.orderNo)">刷新附近司机</el-button>
           </div>
-          <el-alert v-if="canReassign && currentWaitingDriverId" type="warning" :closable="false" show-icon :title="`当前待确认司机 ID：${currentWaitingDriverId}。改派后原派单立即失效。`" />
+          <el-alert v-if="forcedWaiting" type="warning" :closable="false" show-icon title="强制改派确认中：原司机仍为责任司机，新司机接受前不会交接。" />
+          <el-alert v-else-if="canReassign && currentWaitingDriverId" type="warning" :closable="false" show-icon :title="`当前待确认司机 ID：${currentWaitingDriverId}。改派后原派单立即失效。`" />
           <el-table v-loading="nearbyLoading" :data="nearbyDrivers" empty-text="10km 内暂无符合条件司机" class="nearby-table">
             <el-table-column label="司机" min-width="150"><template #default="scope"><div class="stack-cell"><strong>{{ scope.row.driverName }}</strong><span>{{ scope.row.driverNo }}</span></div></template></el-table-column>
             <el-table-column label="可接人数" width="100"><template #default="scope">{{ scope.row.availablePassengers }} 人</template></el-table-column>
@@ -390,6 +489,7 @@ function messageOf(error: unknown): string {
             <el-table-column label="操作" width="110" fixed="right">
               <template #default="scope">
                 <el-button
+                  v-if="!canForceOperate"
                   type="primary"
                   size="small"
                   :plain="canReassign"
@@ -397,9 +497,31 @@ function messageOf(error: unknown): string {
                   :disabled="canReassign && currentWaitingDriverId === scope.row.driverId"
                   @click="assign(scope.row)"
                 >{{ canDispatch ? '派给他' : '改派给他' }}</el-button>
+                <el-button
+                  v-if="canForceOperate"
+                  type="danger"
+                  size="small"
+                  plain
+                  :loading="forceActing"
+                  :disabled="detail.order.currentDriverId === scope.row.driverId"
+                  @click="forceReassign(scope.row)"
+                >强制改派</el-button>
               </template>
             </el-table-column>
           </el-table>
+        </section>
+
+        <section class="drawer-section">
+          <div class="drawer-section-heading"><div><span>操作审计</span><h3>订单完整操作记录</h3></div></div>
+          <el-empty v-if="!detail.operationLogs.length" description="暂无审计记录" :image-size="70" />
+          <el-timeline v-else class="audit-timeline">
+            <el-timeline-item v-for="log in detail.operationLogs" :key="log.id" :timestamp="fullTime(log.createdAt)" placement="top">
+              <strong>{{ auditActionLabel(log.action) }}</strong>
+              <div class="audit-meta">{{ operatorLabel(log) }} · {{ log.action }}</div>
+              <div v-if="log.reason" class="audit-reason">原因：{{ log.reason }}</div>
+              <pre v-if="snapshotOf(log.beforeJson) || snapshotOf(log.afterJson)" class="audit-snapshot"><code>BEFORE {{ snapshotOf(log.beforeJson) || '—' }}\nAFTER {{ snapshotOf(log.afterJson) || '—' }}</code></pre>
+            </el-timeline-item>
+          </el-timeline>
         </section>
 
         <section class="drawer-section">

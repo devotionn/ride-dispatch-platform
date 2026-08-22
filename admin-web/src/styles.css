@@ -145,3 +145,31 @@ button, input, textarea { font: inherit; }
   .detail-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .form-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+.audit-timeline {
+  padding: 6px 4px 0;
+}
+
+.audit-meta {
+  margin-top: 3px;
+  color: var(--admin-muted);
+  font-size: 12px;
+}
+
+.audit-reason {
+  margin-top: 5px;
+  color: #8a5b00;
+  font-size: 12px;
+}
+
+.audit-snapshot {
+  margin: 8px 0 0;
+  max-height: 180px;
+  overflow: auto;
+  padding: 10px;
+  border-radius: 10px;
+  background: #f6f8fb;
+  color: #40536a;
+  font-size: 11px;
+  line-height: 1.5;
+}

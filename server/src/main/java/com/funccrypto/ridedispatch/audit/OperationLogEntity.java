@@ -72,4 +72,16 @@ public class OperationLogEntity {
         this.requestId = requestId;
         this.createdAt = createdAt;
     }
+
+    public Long getId() { return id; }
+    public String getOperatorType() { return operatorType; }
+    public Long getOperatorId() { return operatorId; }
+    public String getObjectType() { return objectType; }
+    public String getObjectId() { return objectId; }
+    public String getAction() { return action; }
+    public String getBeforeJson() { return beforeJson; }
+    public String getAfterJson() { return afterJson; }
+    public String getReason() { return reason; }
+    public String getRequestId() { return requestId; }
+    public Instant getCreatedAt() { return createdAt; }
 }

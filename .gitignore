@@ -12,6 +12,7 @@
 **/node_modules/
 **/.gradle/
 **/build/
+**/dist/
 
 # Local runtime / secrets
 .env

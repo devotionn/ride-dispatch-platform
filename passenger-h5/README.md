@@ -15,8 +15,8 @@
 ```bash
 cd passenger-h5
 cp .env.example .env.local
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 Vite 开发环境默认把 `/api` 代理到 `http://localhost:8080`。如果生产环境前后端不同域，可设置 `VITE_API_BASE_URL`。
@@ -69,6 +69,6 @@ VITE_AMAP_SERVICE_HOST=https://你的域名/_AMapService
 ## 构建校验
 
 ```bash
-npm run typecheck
-npm run build
+pnpm run typecheck
+pnpm run build
 ```

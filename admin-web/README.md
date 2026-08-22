@@ -5,6 +5,7 @@ PC 调度管理后台，面向管理员和调度员，首期重点是订单人�
 ## 已实现工作面
 
 - 管理员/调度员登录；
+- 平台品牌名称 / Logo URL 管理（管理员可修改，其他角色只读）；
 - 服务端可撤销 Bearer Session；
 - 订单列表、状态筛选和分页；
 - 后台代客建单；
@@ -23,8 +24,8 @@ PC 调度管理后台，面向管理员和调度员，首期重点是订单人�
 ```bash
 cd admin-web
 cp .env.example .env.local
-npm install
-npm run dev
+pnpm install --frozen-lockfile
+pnpm run dev
 ```
 
 默认地址 `http://localhost:5174`，开发环境 `/api` 代理到 `http://localhost:8080`。
@@ -43,6 +44,6 @@ VITE_AMAP_SERVICE_HOST=https://你的域名/_AMapService
 ## 构建
 
 ```bash
-npm run typecheck
-npm run build
+pnpm run typecheck
+pnpm run build
 ```

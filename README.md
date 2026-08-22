@@ -37,6 +37,7 @@ ride-dispatch-platform/
 - Passenger 下单 `Idempotency-Key` 防弱网重复订单；
 - 10km + 位置 5 分钟有效 + 可接人数附近司机筛选；
 - 人工派单、司机接受/拒绝、待确认改派；
+- 执行中强制取消 / 强制改派，原司机责任保持到新司机确认；
 - DispatchAttempt 完整历史；
 - 四段式履约状态和 OrderProgressEvent；
 - 最终金额进入 `PENDING_PAYMENT`；
@@ -59,24 +60,28 @@ ride-dispatch-platform/
 - 高德 JS API 2.0 POI 搜索、定位、逆地理、地图选点；
 - 无地图配置时手工地址/经纬度联调兜底；
 - 弱网自动重试 + 同一 Idempotency-Key；
-- 高德 `securityJsCode` Nginx 服务端安全代理模板。
+- 高德 `securityJsCode` Nginx 服务端安全代理模板；
+- pnpm lockfile 冻结安装与 CI 依赖缓存。
 
 ## Admin Web
 
 当前 Phase 2 已实现第一版工作台：
 
 - 管理员/调度员登录；
+- 平台品牌名称 / Logo URL 配置（仅管理员可修改）；
 - 订单中心、状态筛选和分页；
 - 后台代客建单；
 - 订单详情；
 - 附近司机；
 - 人工派单 / 待确认改派；
+- 已接单/执行中强制取消与强制改派（必填原因 + 审计）；
 - 派单历史和履约时间线；
 - 司机列表；
 - 新增司机与车辆；
 - 司机专属下单链接；
 - Admin 高德地图 Provider / 选点能力；
-- 独立 Admin Web CI Gate。
+- 独立 Admin Web CI Gate；
+- 前端使用 pnpm lockfile 冻结安装并启用 CI 依赖缓存。
 
 ## 核心原则
 

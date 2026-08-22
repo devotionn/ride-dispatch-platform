@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
 import AdminLayout from './layouts/AdminLayout.vue'
+import BrandView from './views/BrandView.vue'
 import CreateOrderView from './views/CreateOrderView.vue'
 import DriversView from './views/DriversView.vue'
 import LoginView from './views/LoginView.vue'
@@ -19,6 +20,7 @@ const router = createRouter({
         { path: 'orders', name: 'orders', component: OrdersView, meta: { title: '订单调度' } },
         { path: 'orders/create', name: 'create-order', component: CreateOrderView, meta: { title: '后台代客建单' } },
         { path: 'drivers', name: 'drivers', component: DriversView, meta: { title: '司机管理' } },
+        { path: 'brand', name: 'brand', component: BrandView, meta: { title: '平台品牌' } },
       ],
     },
   ],

@@ -49,6 +49,10 @@ async function logout(): Promise<void> {
           <span>司机管理</span>
           <small>车辆 · 状态 · 二维码</small>
         </router-link>
+        <router-link to="/brand" :class="{ active: route.path.startsWith('/brand') }">
+          <span>平台品牌</span>
+          <small>名称 · Logo</small>
+        </router-link>
       </nav>
 
       <div class="sidebar-footnote">

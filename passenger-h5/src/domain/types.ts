@@ -71,4 +71,6 @@ export interface PassengerOrder {
   serviceStartedAt?: string | null
   arrivedDestinationAt?: string | null
   createdAt: string
+  paymentToken?: string | null
+  paymentStatus?: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | null
 }

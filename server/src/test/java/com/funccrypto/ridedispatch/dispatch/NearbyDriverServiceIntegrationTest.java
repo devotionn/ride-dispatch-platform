@@ -14,6 +14,12 @@ import com.funccrypto.ridedispatch.driver.DriverRepository;
 import com.funccrypto.ridedispatch.order.OrderSourceType;
 import com.funccrypto.ridedispatch.order.PublicOrderService;
 import com.funccrypto.ridedispatch.order.RideOrderRepository;
+import com.funccrypto.ridedispatch.payment.PaymentAttemptRepository;
+import com.funccrypto.ridedispatch.payment.PaymentExceptionRepository;
+import com.funccrypto.ridedispatch.payment.PaymentRepository;
+import com.funccrypto.ridedispatch.settlement.DriverAccountRepository;
+import com.funccrypto.ridedispatch.settlement.DriverLedgerRepository;
+import com.funccrypto.ridedispatch.settlement.WithdrawalRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,9 +47,21 @@ class NearbyDriverServiceIntegrationTest {
 
     @Autowired
     DispatchAttemptRepository attemptRepository;
+    @Autowired PaymentAttemptRepository paymentAttemptRepository;
+    @Autowired PaymentExceptionRepository paymentExceptionRepository;
+    @Autowired PaymentRepository paymentRepository;
+    @Autowired DriverLedgerRepository driverLedgerRepository;
+    @Autowired WithdrawalRepository withdrawalRepository;
+    @Autowired DriverAccountRepository driverAccountRepository;
 
     @BeforeEach
     void clean() {
+        driverLedgerRepository.deleteAll();
+        withdrawalRepository.deleteAll();
+        driverAccountRepository.deleteAll();
+        paymentExceptionRepository.deleteAll();
+        paymentAttemptRepository.deleteAll();
+        paymentRepository.deleteAll();
         attemptRepository.deleteAll();
         orderRepository.deleteAll();
         locationRepository.deleteAll();

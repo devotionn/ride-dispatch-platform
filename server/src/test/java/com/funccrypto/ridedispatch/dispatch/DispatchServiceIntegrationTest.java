@@ -5,6 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import com.funccrypto.ridedispatch.audit.OperationLogRepository;
 import com.funccrypto.ridedispatch.driver.DriverEntity;
@@ -18,6 +24,12 @@ import com.funccrypto.ridedispatch.order.RideOrderEntity;
 import com.funccrypto.ridedispatch.order.RideOrderRepository;
 import com.funccrypto.ridedispatch.order.TripStage;
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
+import com.funccrypto.ridedispatch.payment.PaymentAttemptRepository;
+import com.funccrypto.ridedispatch.payment.PaymentExceptionRepository;
+import com.funccrypto.ridedispatch.payment.PaymentRepository;
+import com.funccrypto.ridedispatch.settlement.DriverAccountRepository;
+import com.funccrypto.ridedispatch.settlement.DriverLedgerRepository;
+import com.funccrypto.ridedispatch.settlement.WithdrawalRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,11 +48,23 @@ class DispatchServiceIntegrationTest {
     @Autowired OperationLogRepository operationLogRepository;
     @Autowired OrderManagementService orderManagementService;
     @Autowired OrderProgressEventRepository progressEventRepository;
+    @Autowired PaymentAttemptRepository paymentAttemptRepository;
+    @Autowired PaymentExceptionRepository paymentExceptionRepository;
+    @Autowired PaymentRepository paymentRepository;
+    @Autowired DriverLedgerRepository driverLedgerRepository;
+    @Autowired WithdrawalRepository withdrawalRepository;
+    @Autowired DriverAccountRepository driverAccountRepository;
 
     @BeforeEach
     void clean() {
         operationLogRepository.deleteAll();
         progressEventRepository.deleteAll();
+        driverLedgerRepository.deleteAll();
+        withdrawalRepository.deleteAll();
+        driverAccountRepository.deleteAll();
+        paymentExceptionRepository.deleteAll();
+        paymentAttemptRepository.deleteAll();
+        paymentRepository.deleteAll();
         attemptRepository.deleteAll();
         orderRepository.deleteAll();
         driverRepository.deleteAll();
@@ -89,6 +113,9 @@ class DispatchServiceIntegrationTest {
         assertThat(newAttempt.getReassignFromDriverId()).isEqualTo(first.getId());
         assertThat(newAttempt.getReassignReason()).isEqualTo("调度调整");
         assertThat(attemptRepository.findByOrderIdOrderByDispatchedAtDesc(order.getId())).hasSize(2);
+        assertThatThrownBy(() -> dispatchService.accept(firstAttempt.getId(), first.getId(), "stale-accept"))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getCode()).isEqualTo("DISPATCH_ATTEMPT_EXPIRED"));
     }
 
     @Test
@@ -198,6 +225,86 @@ class DispatchServiceIntegrationTest {
                 created.orderNo(), third.getId(), 9001L, "normal-reassign", "reassign"))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.getCode()).isEqualTo("ORDER_REASSIGN_BLOCKED_BY_FORCE_REASSIGN"));
+    }
+
+    @Test
+    void passengerCancellationAndDriverAcceptanceHaveOneSerializedWinner() throws Exception {
+        DriverEntity driver = driver("D116", "并发司机", "13800000116", "QRD116");
+        PublicOrderService.CreateOrderResult created = publicOrderService.create(publicCommand());
+        DispatchAttemptEntity attempt = dispatchService.dispatch(created.orderNo(), driver.getId(), 9001L, "dispatch-race");
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Throwable> cancel = executor.submit(race(ready, start,
+                    () -> publicOrderService.cancel(created.orderNo(), created.passengerAccessToken())));
+            Future<Throwable> accept = executor.submit(race(ready, start,
+                    () -> dispatchService.accept(attempt.getId(), driver.getId(), "accept-race")));
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            Throwable cancelFailure = cancel.get(10, TimeUnit.SECONDS);
+            Throwable acceptFailure = accept.get(10, TimeUnit.SECONDS);
+
+            assertThat((cancelFailure == null) ^ (acceptFailure == null)).isTrue();
+            RideOrderEntity order = orderRepository.findByOrderNo(created.orderNo()).orElseThrow();
+            assertThat(order.getStatus()).isIn(OrderStatus.CANCELLED, OrderStatus.ACCEPTED);
+            if (order.getStatus() == OrderStatus.CANCELLED) {
+                assertThat(attemptRepository.findById(attempt.getId()).orElseThrow().getStatus())
+                        .isEqualTo(DispatchAttemptStatus.CANCELLED_BY_ORDER);
+            } else {
+                assertThat(attemptRepository.findById(attempt.getId()).orElseThrow().getStatus())
+                        .isEqualTo(DispatchAttemptStatus.ACCEPTED);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    @Test
+    void twoDispatchersCanProduceOnlyOneWaitingAttempt() throws Exception {
+        DriverEntity first = driver("D117", "调度一号", "13800000117", "QRD117");
+        DriverEntity second = driver("D118", "调度二号", "13800000118", "QRD118");
+        PublicOrderService.CreateOrderResult created = publicOrderService.create(publicCommand());
+
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        CountDownLatch ready = new CountDownLatch(2);
+        CountDownLatch start = new CountDownLatch(1);
+        try {
+            Future<Throwable> firstDispatch = executor.submit(race(ready, start,
+                    () -> dispatchService.dispatch(created.orderNo(), first.getId(), 9001L, "dispatch-race-1")));
+            Future<Throwable> secondDispatch = executor.submit(race(ready, start,
+                    () -> dispatchService.dispatch(created.orderNo(), second.getId(), 9002L, "dispatch-race-2")));
+
+            assertThat(ready.await(5, TimeUnit.SECONDS)).isTrue();
+            start.countDown();
+            Throwable firstFailure = firstDispatch.get(10, TimeUnit.SECONDS);
+            Throwable secondFailure = secondDispatch.get(10, TimeUnit.SECONDS);
+
+            assertThat((firstFailure == null) ^ (secondFailure == null)).isTrue();
+            RideOrderEntity order = orderRepository.findByOrderNo(created.orderNo()).orElseThrow();
+            assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_DRIVER_CONFIRM);
+            assertThat(attemptRepository.findByOrderIdOrderByDispatchedAtDesc(order.getId()))
+                    .hasSize(1)
+                    .allMatch(attempt -> attempt.getStatus() == DispatchAttemptStatus.WAITING);
+        } finally {
+            executor.shutdownNow();
+        }
+    }
+
+    private Callable<Throwable> race(
+            CountDownLatch ready, CountDownLatch start, Callable<?> action) {
+        return () -> {
+            ready.countDown();
+            start.await();
+            try {
+                action.call();
+                return null;
+            } catch (Throwable failure) {
+                return failure;
+            }
+        };
     }
 
     private DriverEntity driver(String no, String name, String mobile, String qr) {

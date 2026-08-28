@@ -49,6 +49,20 @@ export function forceCancelOrder(orderNo: string, reason: string): Promise<{ sta
   })
 }
 
+export function cancelPendingOrder(orderNo: string, reason: string): Promise<OrderStatus> {
+  return apiRequest<OrderStatus>(`/api/v1/admin/orders/${encodeURIComponent(orderNo)}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+export function markOrderException(orderNo: string, reason: string): Promise<OrderStatus> {
+  return apiRequest<OrderStatus>(`/api/v1/admin/orders/${encodeURIComponent(orderNo)}/mark-exception`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
 export function forceReassignOrder(orderNo: string, driverId: number, reason: string): Promise<{ attemptId: number; targetDriverId: number; status: string }> {
   return apiRequest(`/api/v1/admin/orders/${encodeURIComponent(orderNo)}/force-reassign`, {
     method: 'POST',

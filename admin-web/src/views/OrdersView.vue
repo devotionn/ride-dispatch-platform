@@ -4,12 +4,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 
 import {
   createAdminOrder,
+  cancelPendingOrder,
   dispatchOrder,
   forceCancelOrder,
   forceReassignOrder,
   getOrderDetail,
   listNearbyDrivers,
   listOrders,
+  markOrderException,
   reassignOrder,
 } from '../api/orders'
 import type {
@@ -68,6 +70,8 @@ const statusOptions: Array<{ value: OrderStatus; label: string }> = [
 const canDispatch = computed(() => detail.value?.order.status === 'PENDING_DISPATCH')
 const canReassign = computed(() => detail.value?.order.status === 'PENDING_DRIVER_CONFIRM')
 const canForceOperate = computed(() => ['ACCEPTED', 'IN_SERVICE'].includes(detail.value?.order.status ?? ''))
+const canCancelPending = computed(() => ['PENDING_DISPATCH', 'PENDING_DRIVER_CONFIRM'].includes(detail.value?.order.status ?? ''))
+const canMarkException = computed(() => !['COMPLETED', 'CANCELLED', 'EXCEPTION'].includes(detail.value?.order.status ?? ''))
 const forcedWaiting = computed(() => canReassign && currentWaitingDriverId.value !== null && detail.value?.order.currentDriverId !== null)
 const currentWaitingDriverId = computed(() => {
   const attempts = detail.value?.dispatchAttempts ?? []
@@ -368,6 +372,48 @@ const auditActionLabels: Record<string, string> = {
   ORDER_FINAL_AMOUNT_SUBMITTED: '录入最终金额',
 }
 
+async function cancelPending(): Promise<void> {
+  const orderNo = detail.value?.order.orderNo
+  if (!orderNo || forceActing.value || !canCancelPending.value) return
+  forceActing.value = true
+  try {
+    const { value } = await ElMessageBox.prompt(`取消待处理订单 ${orderNo}。必须填写原因。`, '取消订单确认', {
+      confirmButtonText: '确认取消', cancelButtonText: '返回', type: 'warning', inputType: 'textarea',
+      inputValidator: (input: string) => Boolean(input.trim()) || '必须填写取消原因',
+    })
+    await cancelPendingOrder(orderNo, value!.trim())
+    ElMessage.success('待处理订单已取消')
+    nearbyDrivers.value = []
+    await Promise.all([refreshDetail(), loadOrders()])
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(messageOf(error))
+  } finally {
+    forceActing.value = false
+  }
+}
+
+async function markException(): Promise<void> {
+  const orderNo = detail.value?.order.orderNo
+  if (!orderNo || forceActing.value || !canMarkException.value) return
+  forceActing.value = true
+  try {
+    const { value } = await ElMessageBox.prompt(`将订单 ${orderNo} 标记为异常，后续需人工跟进。`, '异常标记确认', {
+      confirmButtonText: '标记异常', cancelButtonText: '返回', type: 'warning', inputType: 'textarea',
+      inputValidator: (input: string) => Boolean(input.trim()) || '必须填写异常说明',
+    })
+    await markOrderException(orderNo, value!.trim())
+    ElMessage.success('订单已标记为异常')
+    nearbyDrivers.value = []
+    await Promise.all([refreshDetail(), loadOrders()])
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') return
+    ElMessage.error(messageOf(error))
+  } finally {
+    forceActing.value = false
+  }
+}
+
 function auditActionLabel(action: string): string {
   return auditActionLabels[action] ?? action
 }
@@ -454,7 +500,9 @@ function messageOf(error: unknown): string {
           <div><span>订单号</span><strong>{{ detail.order.orderNo }}</strong></div>
           <el-tag :type="statusType(detail.order.status)" size="large">{{ statusLabel(detail.order.status) }}</el-tag>
           <el-button plain @click="refreshDetail">刷新</el-button>
+          <el-button v-if="canCancelPending" type="danger" plain :loading="forceActing" @click="cancelPending">取消订单</el-button>
           <el-button v-if="canForceOperate" type="danger" plain :loading="forceActing" @click="forceCancel">强制取消</el-button>
+          <el-button v-if="canMarkException" type="warning" plain :loading="forceActing" @click="markException">标记异常</el-button>
         </div>
 
         <div class="detail-grid">

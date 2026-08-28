@@ -18,7 +18,9 @@ const apiBase = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 export async function apiRequest<T>(path: string, init: RequestInit = {}, authenticated = true): Promise<T> {
   const headers = new Headers(init.headers)
-  if (init.body && !headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
+  if (init.body && !headers.has('Content-Type') && !(init.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json')
+  }
 
   if (authenticated) {
     const session = getSession()

@@ -26,6 +26,12 @@ import com.funccrypto.ridedispatch.order.OrderProgressEventRepository;
 import com.funccrypto.ridedispatch.order.OrderStatus;
 import com.funccrypto.ridedispatch.order.RideOrderRepository;
 import com.funccrypto.ridedispatch.order.TripStage;
+import com.funccrypto.ridedispatch.payment.PaymentAttemptRepository;
+import com.funccrypto.ridedispatch.payment.PaymentExceptionRepository;
+import com.funccrypto.ridedispatch.payment.PaymentRepository;
+import com.funccrypto.ridedispatch.settlement.DriverAccountRepository;
+import com.funccrypto.ridedispatch.settlement.DriverLedgerRepository;
+import com.funccrypto.ridedispatch.settlement.WithdrawalRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -53,6 +59,12 @@ class Phase1HttpFlowIntegrationTest {
     @Autowired DispatchAttemptRepository attemptRepository;
     @Autowired OrderProgressEventRepository progressRepository;
     @Autowired OperationLogRepository operationLogRepository;
+    @Autowired PaymentAttemptRepository paymentAttemptRepository;
+    @Autowired PaymentExceptionRepository paymentExceptionRepository;
+    @Autowired PaymentRepository paymentRepository;
+    @Autowired DriverLedgerRepository driverLedgerRepository;
+    @Autowired WithdrawalRepository withdrawalRepository;
+    @Autowired DriverAccountRepository driverAccountRepository;
     @Autowired PlatformBrandRepository brandRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired Clock clock;
@@ -96,6 +108,9 @@ class Phase1HttpFlowIntegrationTest {
         long driverId = createdDriver.get("id").asLong();
 
         String driverToken = login("/api/v1/auth/driver/login", "DHTTP01", "driver-password");
+        JsonNode driverState = getJson("/api/v1/driver/me/state", driverToken);
+        assertThat(driverState.get("workStatus").asText()).isEqualTo("AVAILABLE");
+        assertThat(driverState.get("availablePassengers").asInt()).isEqualTo(4);
         postJson(
                 "/api/v1/driver/me/location",
                 driverToken,
@@ -155,6 +170,9 @@ class Phase1HttpFlowIntegrationTest {
                 "{\"amount\":12800}"));
         assertThat(pendingPayment.get("status").asText()).isEqualTo("PENDING_PAYMENT");
         assertThat(pendingPayment.get("finalAmount").asLong()).isEqualTo(12800L);
+        var payment = paymentRepository.findByOrderId(orderRepository.findByOrderNo(orderNo).orElseThrow().getId()).orElseThrow();
+        assertThat(payment.getAmount()).isEqualTo(12800L);
+        assertThat(payment.getStatus().name()).isEqualTo("PENDING");
 
         JsonNode passengerView = json(mockMvc.perform(get("/api/v1/public/orders/{orderNo}", orderNo)
                         .header("X-Passenger-Token", passengerToken))
@@ -163,6 +181,8 @@ class Phase1HttpFlowIntegrationTest {
         assertThat(passengerView.get("status").asText()).isEqualTo("PENDING_PAYMENT");
         assertThat(passengerView.get("tripStage").asText()).isEqualTo("ARRIVED_DESTINATION");
         assertThat(passengerView.get("finalAmount").asLong()).isEqualTo(12800L);
+        assertThat(passengerView.get("paymentToken").asText()).isNotBlank();
+        assertThat(passengerView.get("paymentStatus").asText()).isEqualTo("PENDING");
 
         JsonNode adminList = getJson("/api/v1/admin/orders?status=PENDING_PAYMENT", adminToken);
         assertThat(adminList.get("totalElements").asLong()).isEqualTo(1L);
@@ -176,6 +196,14 @@ class Phase1HttpFlowIntegrationTest {
         assertThat(order.getStatus()).isEqualTo(OrderStatus.PENDING_PAYMENT);
         assertThat(order.getCurrentDriverId()).isEqualTo(driverId);
         assertThat(order.getFinalAmount()).isEqualTo(12800L);
+    }
+
+    @Test
+    void unavailableRouteReturnsStructuredNotFoundInsteadOfInternalError() throws Exception {
+        mockMvc.perform(get("/api/v1/local/mock-payments/unavailable-at-production"))
+                .andExpect(status().isNotFound())
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .contains("\"code\":\"NOT_FOUND\""));
     }
 
     @Test
@@ -208,6 +236,36 @@ class Phase1HttpFlowIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"companyName\":\"未授权修改\"}"))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void adminCanCancelPendingOrderAndMarkAnotherOrderException() throws Exception {
+        adminRepository.save(new AdminUserEntity(
+                "order-admin", passwordEncoder.encode("admin-password"), "订单管理员", AdminRole.ADMIN, clock.instant()));
+        String adminToken = login("/api/v1/auth/admin/login", "order-admin", "admin-password");
+        String departureAt = OffsetDateTime.now(ZoneOffset.UTC).plusHours(1).withNano(0).toString();
+
+        JsonNode pending = json(postJson(
+                "/api/v1/admin/orders", adminToken, orderBodyWithoutSource(departureAt, "13800000011")));
+        String pendingOrderNo = pending.get("orderNo").asText();
+        JsonNode cancelled = json(postJson(
+                "/api/v1/admin/orders/" + pendingOrderNo + "/cancel", adminToken,
+                "{\"reason\":\"乘客改期，释放待处理订单\"}"));
+        assertThat(cancelled.asText()).isEqualTo("CANCELLED");
+        assertThat(orderRepository.findByOrderNo(pendingOrderNo).orElseThrow().getStatus()).isEqualTo(OrderStatus.CANCELLED);
+
+        JsonNode exceptionOrder = json(postJson(
+                "/api/v1/admin/orders", adminToken, orderBodyWithoutSource(departureAt, "13800000012")));
+        String exceptionOrderNo = exceptionOrder.get("orderNo").asText();
+        JsonNode exception = json(postJson(
+                "/api/v1/admin/orders/" + exceptionOrderNo + "/mark-exception", adminToken,
+                "{\"reason\":\"外部核验失败，需要人工复核\"}"));
+        assertThat(exception.asText()).isEqualTo("EXCEPTION");
+        assertThat(orderRepository.findByOrderNo(exceptionOrderNo).orElseThrow().getStatus()).isEqualTo(OrderStatus.EXCEPTION);
+        assertThat(operationLogRepository.findByObjectTypeAndObjectIdOrderByCreatedAtAscIdAsc("ORDER", pendingOrderNo))
+                .anyMatch(log -> log.getAction().equals("ORDER_CANCELLED_BY_ADMIN"));
+        assertThat(operationLogRepository.findByObjectTypeAndObjectIdOrderByCreatedAtAscIdAsc("ORDER", exceptionOrderNo))
+                .anyMatch(log -> log.getAction().equals("ORDER_MARKED_EXCEPTION"));
     }
     private JsonNode advance(String orderNo, String token, TripStage stage) throws Exception {
         return json(postJson(
@@ -286,6 +344,12 @@ class Phase1HttpFlowIntegrationTest {
     private void cleanDatabase() {
         sessionRepository.deleteAll();
         operationLogRepository.deleteAll();
+        driverLedgerRepository.deleteAll();
+        withdrawalRepository.deleteAll();
+        driverAccountRepository.deleteAll();
+        paymentExceptionRepository.deleteAll();
+        paymentAttemptRepository.deleteAll();
+        paymentRepository.deleteAll();
         progressRepository.deleteAll();
         attemptRepository.deleteAll();
         orderRepository.deleteAll();

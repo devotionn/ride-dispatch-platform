@@ -12,6 +12,8 @@ import org.springframework.validation.BindException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
@@ -48,6 +50,12 @@ public class ApiExceptionHandler {
     ResponseEntity<ApiError> handleDataConflict(DataIntegrityViolationException exception, HttpServletRequest request) {
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(new ApiError("DATA_CONFLICT", "数据已被其他请求更新，请重试", requestId(request)));
+    }
+
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    ResponseEntity<ApiError> handleNotFound(Exception exception, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(new ApiError("NOT_FOUND", "资源不存在", requestId(request)));
     }
 
     @ExceptionHandler(Exception.class)

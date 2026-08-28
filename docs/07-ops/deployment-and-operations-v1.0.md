@@ -26,6 +26,21 @@ Web/Android 可按开发体验独立启动。
 
 数据库初始化全部通过 Flyway。
 
+当前本地后端基线为 Java 21，默认端口为 `8080`。开发机可以使用更高版本 JDK（例如 Java 25）运行，但 CI、Docker 构建和生产运行时仍以 Java 21 为准，除非完成一次明确的全环境升级和验证。
+
+使用 `local` profile 时，开发环境可以使用 H2 和本地种子数据；该 profile 不得用于测试或生产。使用 MySQL 联调时，先启动 `deploy/docker-compose.dev.yml` 中的 MySQL，再由 Flyway 建立 schema。
+
+本地后端可用脚本重复启动和验收：
+
+```powershell
+./deploy/scripts/build-local.ps1
+./deploy/scripts/launch-local.ps1
+./deploy/scripts/smoke-local.ps1
+./deploy/scripts/stop-local.ps1
+```
+
+脚本默认使用 `8081`，要求 `JAVA_HOME` 指向 Java 21、`MAVEN_HOME` 指向 Maven 3.9+；`smoke-local.ps1` 应在刚重启的本地 H2 实例上运行，以保证账本断言从干净种子开始。
+
 ## 3. 生产最小拓扑
 
 ```text

@@ -1,0 +1,21 @@
+{
+  "name": "ride-dispatch-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "type": "commonjs",
+  "packageManager": "pnpm@11.19.0",
+  "engines": {
+    "node": ">=22.18.0"
+  },
+  "scripts": {
+    "phase2": "node phase2-passenger-admin.cjs",
+    "depth:http": "node local-http-depth.cjs",
+    "payment:browser": "node payment-settlement-browser.cjs",
+    "smoke:deployed": "node deployed-http-smoke.cjs",
+    "core:deployed": "node deployed-core-flow.cjs",
+    "sse:deployed": "node deployed-sse-smoke.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  }
+}

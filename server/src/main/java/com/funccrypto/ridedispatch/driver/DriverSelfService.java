@@ -16,14 +16,20 @@ public class DriverSelfService {
 
     private final DriverRepository driverRepository;
     private final DriverLocationCurrentRepository locationRepository;
+    private final VehicleRepository vehicleRepository;
+    private final QrCodeRenderer qrCodeRenderer;
     private final Clock clock;
 
     public DriverSelfService(
             DriverRepository driverRepository,
             DriverLocationCurrentRepository locationRepository,
+            VehicleRepository vehicleRepository,
+            QrCodeRenderer qrCodeRenderer,
             Clock clock) {
         this.driverRepository = driverRepository;
         this.locationRepository = locationRepository;
+        this.vehicleRepository = vehicleRepository;
+        this.qrCodeRenderer = qrCodeRenderer;
         this.clock = clock;
     }
 
@@ -32,6 +38,11 @@ public class DriverSelfService {
         DriverEntity driver = requireDriver(driverId);
         driver.updateWorkStatus(workStatus, clock.instant());
         return DriverStateView.from(driver);
+    }
+
+    @Transactional(readOnly = true)
+    public DriverStateView getState(Long driverId) {
+        return DriverStateView.from(requireDriver(driverId));
     }
 
     @Transactional
@@ -68,7 +79,18 @@ public class DriverSelfService {
     @Transactional(readOnly = true)
     public QrView getQr(Long driverId) {
         DriverEntity driver = requireDriver(driverId);
-        return new QrView(driver.getQrShortCode(), "/ride/d/" + driver.getQrShortCode());
+        String path = "/ride/d/" + driver.getQrShortCode();
+        return new QrView(driver.getQrShortCode(), path, qrCodeRenderer.dataUrl(path));
+    }
+
+    @Transactional(readOnly = true)
+    public ProfileView getProfile(Long driverId) {
+        DriverEntity driver = requireDriver(driverId);
+        VehicleEntity vehicle = driver.getDefaultVehicleId() == null ? null
+                : vehicleRepository.findById(driver.getDefaultVehicleId()).orElse(null);
+        return new ProfileView(driver.getId(), driver.getDriverNo(), driver.getName(), driver.getMobile(),
+                driver.getAccountStatus(), vehicle == null ? null : vehicle.getPlateNo(),
+                vehicle == null ? null : vehicle.getBrandModel());
     }
 
     private DriverEntity requireDriver(Long driverId) {
@@ -96,6 +118,10 @@ public class DriverSelfService {
             Instant receivedAt) {
     }
 
-    public record QrView(String shortCode, String path) {
+    public record QrView(String shortCode, String path, String imageDataUrl) {
+    }
+
+    public record ProfileView(Long driverId, String driverNo, String name, String mobile,
+            DriverAccountStatus accountStatus, String plateNo, String brandModel) {
     }
 }

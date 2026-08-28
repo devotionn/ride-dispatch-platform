@@ -10,7 +10,7 @@
 
 ## 本地启动
 
-要求 Node.js 22.12+，后端默认运行在 8080 端口。
+要求 Node.js 22.18+，后端默认运行在 8080 端口。
 
 ```bash
 cd passenger-h5
@@ -19,7 +19,7 @@ pnpm install --frozen-lockfile
 pnpm run dev
 ```
 
-Vite 开发环境默认把 `/api` 代理到 `http://localhost:8080`。如果生产环境前后端不同域，可设置 `VITE_API_BASE_URL`。
+Vite 开发环境默认把 `/api` 代理到 `http://localhost:8080`。如本机后端使用其他端口，可在 `.env.local` 设置 `VITE_DEV_API_TARGET` 覆盖代理目标；如果生产环境前后端不同域，可设置 `VITE_API_BASE_URL`。
 
 ## 地图接入
 

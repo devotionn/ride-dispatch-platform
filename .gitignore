@@ -13,6 +13,7 @@
 **/.gradle/
 **/build/
 **/dist/
+**/local.properties
 
 # Local runtime / secrets
 .env
@@ -20,3 +21,11 @@
 !.env.example
 *.log
 /data/
+
+# Browser acceptance diagnostics
+e2e/artifacts/
+
+# Superseded one-off browser checks and screenshots
+.tmp_ui/
+passenger-order-status.png
+admin-after-accept.png

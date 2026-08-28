@@ -52,6 +52,12 @@ public class PlatformBrandService {
         return after;
     }
 
+    @Transactional
+    public BrandView updateLogo(String logoUrl, Long operatorId, String requestId) {
+        BrandView current = get();
+        return update(current.companyName(), logoUrl, operatorId, requestId);
+    }
+
     public record BrandView(Long id, String companyName, String logoUrl, Instant updatedAt) {
         static BrandView from(PlatformBrandEntity entity) {
             return new BrandView(entity.getId(), entity.getCompanyName(), entity.getLogoUrl(), entity.getUpdatedAt());

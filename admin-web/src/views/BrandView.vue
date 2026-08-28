@@ -2,12 +2,13 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
-import { getAdminBrand, updateAdminBrand } from '../api/brand'
+import { getAdminBrand, updateAdminBrand, uploadBrandLogo } from '../api/brand'
 import type { PlatformBrand } from '../domain/types'
 import { getSession } from '../storage/auth'
 
 const loading = ref(false)
 const saving = ref(false)
+const uploading = ref(false)
 const brand = ref<PlatformBrand | null>(null)
 const form = reactive({
   companyName: '',
@@ -63,6 +64,32 @@ async function save(): Promise<void> {
   }
 }
 
+async function uploadLogo(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || !isAdmin.value || uploading.value) return
+  if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+    ElMessage.warning('Logo 仅支持 PNG、JPEG 或 WebP 图片')
+    return
+  }
+  if (file.size > 2 * 1024 * 1024) {
+    ElMessage.warning('Logo 文件不能超过 2 MB')
+    return
+  }
+  uploading.value = true
+  try {
+    const result = await uploadBrandLogo(file)
+    brand.value = result
+    form.logoUrl = result.logoUrl ?? ''
+    ElMessage.success('Logo 已上传并替换')
+  } catch (error) {
+    ElMessage.error(messageOf(error))
+  } finally {
+    uploading.value = false
+  }
+}
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : '操作失败，请稍后重试'
 }
@@ -113,7 +140,11 @@ function messageOf(error: unknown): string {
             maxlength="500"
             placeholder="https://example.com/logo.png"
           />
-          <div class="brand-hint">当前版本通过 URL 配置 Logo；文件上传能力后续单独接入。</div>
+          <div class="brand-hint">可直接填写外部 URL，也可上传不超过 2 MB 的 PNG、JPEG 或 WebP 文件。</div>
+        </el-form-item>
+
+        <el-form-item label="上传 Logo 文件">
+          <input class="logo-file-input" type="file" accept="image/png,image/jpeg,image/webp" :disabled="!isAdmin || uploading" @change="uploadLogo" />
         </el-form-item>
 
         <div v-if="logoPreview" class="brand-preview">
@@ -161,6 +192,14 @@ function messageOf(error: unknown): string {
   max-width: 96px;
   max-height: 48px;
   object-fit: contain;
+}
+
+.logo-file-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px dashed var(--admin-line);
+  border-radius: 10px;
+  background: #f8fafc;
 }
 
 .brand-preview span {

@@ -89,7 +89,17 @@
 → 人工派司机
 ```
 
+**Gate 状态：PASS（2026-08-23）**
+
+- 可重复脚本：`e2e/phase2-passenger-admin.cjs`；
+- 公共 H5 手工输入 A/B 点并创建订单；
+- Admin 登录后按订单号查看、选择附近司机并人工派单；
+- 司机定向入口 `/ride/d/QRD101` 创建订单后保持 `PENDING_DRIVER_CONFIRM`；
+- Java 21 后端 `mvn verify`：24 个测试通过；Passenger H5、Admin Web 构建通过。
+
 ## Phase 3 — Android Driver
+
+当前状态：Compose 司机工作台、司机 API、定位前台服务和本地新派单通知已接入；单元测试与 Debug APK 构建通过。Android 13 通知权限和模拟器启动已验证，厂商后台限制、锁屏行为和真实设备 Gate 仍待补测。
 
 ### 交付
 
@@ -142,7 +152,8 @@ H5 下单
 - WeChatPayProvider
 - AlipayProvider
 - 主动查询补偿
-- 支付异常后台
+- 真实渠道支付异常后台
+- 本地人工退款异常登记/解决/驳回后台（已完成）
 - 对账能力
 
 ### Gate
@@ -220,4 +231,4 @@ H5 下单
 
 ## 当前下一步
 
-完成文档基线后，进入 Phase 1：工程初始化 + Backend Core。
+当前 Phase 3 本地垂直切片已完成：Android 司机端登录、接单/拒单、履约、金额、定位、收入/提现和本地新单通知均已通过模拟器 Gate。下一步进入 Phase 4 外部渠道与部署准备：真实支付/退款、Push 厂商、MySQL/HTTPS、备份告警和服务器环境仍需正式资料与验收。

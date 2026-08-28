@@ -14,3 +14,12 @@ export function updateAdminBrand(payload: { companyName: string; logoUrl?: strin
     }),
   })
 }
+
+export function uploadBrandLogo(file: File): Promise<PlatformBrand> {
+  const body = new FormData()
+  body.append('file', file)
+  return apiRequest<PlatformBrand>('/api/v1/admin/brand/logo', {
+    method: 'POST',
+    body,
+  })
+}

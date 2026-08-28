@@ -168,12 +168,11 @@ public class RideOrderEntity {
             return;
         }
         requireStatus(OrderStatus.IN_SERVICE);
-        TripStage expected = switch (tripStage) {
+        TripStage expected = tripStage == null ? null : switch (tripStage) {
             case ARRIVED_PICKUP -> TripStage.PASSENGER_ONBOARD;
             case PASSENGER_ONBOARD -> TripStage.IN_TRANSIT;
             case IN_TRANSIT -> TripStage.ARRIVED_DESTINATION;
             case ARRIVED_DESTINATION -> null;
-            case null -> null;
         };
         if (expected == null || expected != nextStage) {
             throw new BusinessException("TRIP_STAGE_CONFLICT", "履约阶段必须按顺序推进");
@@ -192,6 +191,37 @@ public class RideOrderEntity {
         if (amount <= 0) throw new BusinessException("INVALID_FINAL_AMOUNT", "最终金额必须大于 0");
         this.finalAmount = amount;
         this.status = OrderStatus.PENDING_PAYMENT;
+        this.updatedAt = now;
+    }
+
+    public void cancelByAdminBeforeAcceptance(Instant now) {
+        if (status != OrderStatus.PENDING_DISPATCH && status != OrderStatus.PENDING_DRIVER_CONFIRM) {
+            throw new BusinessException("ORDER_ADMIN_CANCEL_REQUIRES_PENDING", "仅待接单或待司机确认订单可取消");
+        }
+        this.status = OrderStatus.CANCELLED;
+        this.cancelledAt = now;
+        this.updatedAt = now;
+    }
+
+    public void markException(Instant now) {
+        if (status == OrderStatus.COMPLETED || status == OrderStatus.CANCELLED || status == OrderStatus.EXCEPTION) {
+            throw new BusinessException("ORDER_EXCEPTION_STATE_INVALID", "当前订单状态不能标记为异常");
+        }
+        this.status = OrderStatus.EXCEPTION;
+        this.updatedAt = now;
+    }
+
+    public void completeFromPayment(String settlementMethod, Instant now) {
+        requireStatus(OrderStatus.PENDING_PAYMENT);
+        if (finalAmount == null || finalAmount <= 0) {
+            throw new BusinessException("ORDER_FINAL_AMOUNT_REQUIRED", "订单缺少有效最终金额");
+        }
+        if (settlementMethod == null || settlementMethod.isBlank()) {
+            throw new BusinessException("SETTLEMENT_METHOD_REQUIRED", "收款方式不能为空");
+        }
+        this.settlementMethod = settlementMethod;
+        this.status = OrderStatus.COMPLETED;
+        this.completedAt = now;
         this.updatedAt = now;
     }
 

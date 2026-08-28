@@ -1,0 +1,23 @@
+[Unit]
+Description=Ride Dispatch Server
+After=network-online.target mysqld.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ride-dispatch
+Group=ride-dispatch
+EnvironmentFile=/etc/ride-dispatch-server.env
+WorkingDirectory=/opt/ride-dispatch/app
+ExecStart=/usr/bin/java -XX:MaxRAMPercentage=60 -XX:+ExitOnOutOfMemoryError -jar /opt/ride-dispatch/app/ride-dispatch-server.jar
+Restart=on-failure
+RestartSec=5
+SuccessExitStatus=143
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/ride-dispatch/data
+
+[Install]
+WantedBy=multi-user.target

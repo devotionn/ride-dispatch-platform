@@ -28,3 +28,7 @@ management:
     health:
       probes:
         enabled: true
+
+app:
+  brand:
+    logo-upload-dir: ${BRAND_LOGO_UPLOAD_DIR:./data/brand}

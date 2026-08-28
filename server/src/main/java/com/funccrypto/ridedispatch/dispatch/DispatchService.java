@@ -11,6 +11,8 @@ import com.funccrypto.ridedispatch.driver.DriverRepository;
 import com.funccrypto.ridedispatch.order.OrderStatus;
 import com.funccrypto.ridedispatch.order.RideOrderEntity;
 import com.funccrypto.ridedispatch.order.RideOrderRepository;
+import com.funccrypto.ridedispatch.realtime.DriverRealtimeEvent;
+import com.funccrypto.ridedispatch.realtime.RealtimeEventHub;
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,14 +25,17 @@ public class DispatchService {
     private final DispatchAttemptRepository attemptRepository;
     private final AuditService auditService;
     private final Clock clock;
+    private final RealtimeEventHub eventHub;
 
     public DispatchService(RideOrderRepository orderRepository, DriverRepository driverRepository,
-            DispatchAttemptRepository attemptRepository, AuditService auditService, Clock clock) {
+            DispatchAttemptRepository attemptRepository, AuditService auditService, Clock clock,
+            RealtimeEventHub eventHub) {
         this.orderRepository = orderRepository;
         this.driverRepository = driverRepository;
         this.attemptRepository = attemptRepository;
         this.auditService = auditService;
         this.clock = clock;
+        this.eventHub = eventHub;
     }
 
     @Transactional
@@ -51,6 +56,8 @@ public class DispatchService {
         auditService.log("ADMIN", operatorId, "ORDER", order.getOrderNo(), "ORDER_DISPATCHED",
                 Map.of("status", OrderStatus.PENDING_DISPATCH),
                 Map.of("status", order.getStatus(), "targetDriverId", driverId), null, requestId, now);
+        eventHub.publishAfterCommit(new DriverRealtimeEvent(
+                "DRIVER_NEW_DISPATCH", driverId, attempt.getId(), order.getOrderNo(), order.getStatus(), now));
         return attempt;
     }
 
@@ -87,6 +94,10 @@ public class DispatchService {
         auditService.log("ADMIN", operatorId, "ORDER", order.getOrderNo(), "ORDER_REASSIGNED_PENDING_CONFIRM",
                 Map.of("status", OrderStatus.PENDING_DRIVER_CONFIRM, "targetDriverId", previousDriverId),
                 Map.of("status", order.getStatus(), "targetDriverId", newDriverId), reason, requestId, now);
+        eventHub.publishAfterCommit(new DriverRealtimeEvent(
+                "DRIVER_DISPATCH_INVALIDATED", previousDriverId, waiting.getId(), order.getOrderNo(), order.getStatus(), now));
+        eventHub.publishAfterCommit(new DriverRealtimeEvent(
+                "DRIVER_NEW_DISPATCH", newDriverId, replacement.getId(), order.getOrderNo(), order.getStatus(), now));
         return replacement;
     }
 
@@ -104,6 +115,8 @@ public class DispatchService {
         auditService.log("DRIVER", driverId, "ORDER", order.getOrderNo(), "DISPATCH_ACCEPTED",
                 Map.of("status", OrderStatus.PENDING_DRIVER_CONFIRM),
                 Map.of("status", order.getStatus(), "driverId", driverId), null, requestId, now);
+        eventHub.publishAfterCommit(new DriverRealtimeEvent(
+                "ORDER_STATUS_CHANGED", driverId, attemptId, order.getOrderNo(), order.getStatus(), now));
         return order.getStatus();
     }
 
@@ -121,6 +134,8 @@ public class DispatchService {
         auditService.log("DRIVER", driverId, "ORDER", order.getOrderNo(), "DISPATCH_REJECTED",
                 Map.of("status", OrderStatus.PENDING_DRIVER_CONFIRM), Map.of("status", order.getStatus()),
                 reasonCode == null ? reasonText : reasonCode, requestId, now);
+        eventHub.publishAfterCommit(new DriverRealtimeEvent(
+                "ORDER_STATUS_CHANGED", driverId, attemptId, order.getOrderNo(), order.getStatus(), now));
         return order.getStatus();
     }
 
@@ -169,6 +184,10 @@ public class DispatchService {
                 Map.of("status", order.getStatus().name(), "pendingDriverId", newDriver.getId(),
                         "responsibleDriverId", previousDriverId),
                 reason, requestId, now);
+        eventHub.publishAfterCommit(new DriverRealtimeEvent(
+                "DRIVER_DISPATCH_INVALIDATED", previousDriverId, null, order.getOrderNo(), order.getStatus(), now));
+        eventHub.publishAfterCommit(new DriverRealtimeEvent(
+                "DRIVER_NEW_DISPATCH", newDriverId, replacement.getId(), order.getOrderNo(), order.getStatus(), now));
         return replacement;
     }
 

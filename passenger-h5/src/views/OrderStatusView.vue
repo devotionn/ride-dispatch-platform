@@ -40,6 +40,12 @@ const tripStageText: Record<TripStage, string> = {
 
 const currentMeta = computed(() => (order.value ? statusMeta[order.value.status] : null))
 const canCancel = computed(() => order.value && ['PENDING_DISPATCH', 'PENDING_DRIVER_CONFIRM'].includes(order.value.status))
+const canPay = computed(() => order.value?.status === 'PENDING_PAYMENT' && Boolean(order.value.paymentToken))
+
+function openPayment(): void {
+  if (!order.value?.paymentToken) return
+  router.push({ name: 'payment', params: { paymentToken: order.value.paymentToken }, query: { orderNo: orderNo.value } })
+}
 const moneyText = computed(() => {
   if (order.value?.finalAmount == null) return ''
   return `¥${(order.value.finalAmount / 100).toFixed(2)}`
@@ -148,6 +154,11 @@ function formatTime(value?: string | null): string {
         <span>本次行程金额</span>
         <strong>{{ moneyText }}</strong>
         <small>金额由司机与乘客协商后录入</small>
+      </section>
+
+      <section v-if="canPay" class="surface-card pay-entry-card">
+        <div><span class="section-kicker">付款入口</span><h2>确认金额后完成付款</h2><p>支持 Mock 微信/支付宝，支付结果由服务端确认。</p></div>
+        <van-button round type="primary" @click="openPayment">去付款</van-button>
       </section>
 
       <section class="surface-card detail-card">

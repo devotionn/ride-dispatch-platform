@@ -44,6 +44,11 @@ public class DriverOrderController {
         return service.activeForDriver(driverId(authentication)).stream().map(DriverOrderView::from).toList();
     }
 
+    @GetMapping("/history")
+    List<DriverOrderView> history(Authentication authentication) {
+        return service.historyForDriver(driverId(authentication)).stream().map(DriverOrderView::from).toList();
+    }
+
     @PostMapping("/{orderNo}/progress")
     ProgressResponse progress(
             @PathVariable String orderNo,

@@ -114,6 +114,26 @@ public class AdminOrderController {
                 orderNo, request.reason(), operatorId(authentication), requestId(servletRequest));
     }
 
+    @PostMapping("/{orderNo}/cancel")
+    OrderStatus cancelPending(
+            @PathVariable String orderNo,
+            @Valid @RequestBody ForceActionRequest request,
+            Authentication authentication,
+            HttpServletRequest servletRequest) {
+        return service.cancelPendingByAdmin(
+                orderNo, request.reason(), operatorId(authentication), requestId(servletRequest));
+    }
+
+    @PostMapping("/{orderNo}/mark-exception")
+    OrderStatus markException(
+            @PathVariable String orderNo,
+            @Valid @RequestBody ForceActionRequest request,
+            Authentication authentication,
+            HttpServletRequest servletRequest) {
+        return service.markException(
+                orderNo, request.reason(), operatorId(authentication), requestId(servletRequest));
+    }
+
     @PostMapping("/{orderNo}/force-reassign")
     com.funccrypto.ridedispatch.dispatch.api.AdminDispatchController.DispatchResponse forceReassign(
             @PathVariable String orderNo,

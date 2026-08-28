@@ -53,6 +53,22 @@ async function logout(): Promise<void> {
           <span>平台品牌</span>
           <small>名称 · Logo</small>
         </router-link>
+        <router-link to="/payments" :class="{ active: route.path.startsWith('/payments') }">
+          <span>支付记录</span>
+          <small>支付单 · 回调 · 渠道</small>
+        </router-link>
+        <router-link v-if="session?.authority === 'ROLE_ADMIN' || session?.authority === 'ROLE_FINANCE'" to="/payment-exceptions" :class="{ active: route.path.startsWith('/payment-exceptions') }">
+          <span>退款异常</span>
+          <small>人工退款 · 留痕</small>
+        </router-link>
+        <router-link to="/withdrawals" :class="{ active: route.path.startsWith('/withdrawals') }">
+          <span>提现审核</span>
+          <small>冻结 · 驳回 · 打款</small>
+        </router-link>
+        <router-link v-if="session?.authority === 'ROLE_ADMIN' || session?.authority === 'ROLE_DISPATCHER' || session?.authority === 'ROLE_FINANCE'" to="/operation-logs" :class="{ active: route.path.startsWith('/operation-logs') }">
+          <span>操作日志</span>
+          <small>全局审计 · 导出</small>
+        </router-link>
       </nav>
 
       <div class="sidebar-footnote">

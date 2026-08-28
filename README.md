@@ -9,9 +9,11 @@
 - 产品基线：PRD V1.3
 - 技术基线：Technical Implementation V1.0
 - Phase 1 Backend Core：核心订单/司机/定位/派单/认证/履约 API 已实现，已验证主链路 CI PASS
-- Phase 2：Passenger H5 + Admin Web 开发中
+- Phase 2：Passenger H5 + Admin Web 已完成浏览器 Gate（2026-08-23）；公共下单、后台人工派单、司机定向入口均已验证
+- 当前状态：本地支付/结算、人工退款异常、提现审核、Admin 报表、Android 司机工作台和本地通知均已接入；当前下一步是服务器环境接入与真实外部渠道准备
 - 真实微信/支付宝商户、Android Push 厂商、监管接口等外部生产资料尚未确定
 - 已接单/执行中强制改派的责任交接语义仍按 PRD V1.4 Proposal 管理，不擅自固化
+- 后端编译与 CI/容器基线保持 Java 21；本机可使用更高版本 JDK（如 Java 25）开发，但不代表项目已升级运行时基线
 
 ## 已实现代码结构
 
@@ -20,7 +22,7 @@ ride-dispatch-platform/
 ├─ server/             # Java 21 + Spring Boot 模块化单体
 ├─ passenger-h5/       # Vue 3 + Vant 乘客 H5
 ├─ admin-web/          # Vue 3 + Element Plus PC 调度后台
-├─ driver-app/         # Kotlin Android（后续 Phase）
+├─ driver-app/         # Kotlin Android（Phase 3 最小垂直切片）
 ├─ docs/               # 产品/技术/测试/运维完整基线
 └─ deploy/             # Docker / Nginx / 外部服务安全代理
 ```
@@ -41,6 +43,9 @@ ride-dispatch-platform/
 - DispatchAttempt 完整历史；
 - 四段式履约状态和 OrderProgressEvent；
 - 最终金额进入 `PENDING_PAYMENT`；
+- 本地 Mock 微信/支付宝支付、失败重试、金额校验、幂等结算；
+- 线上/线下收入与司机可提现余额、提现冻结/审核/人工打款；
+- 财务人工退款异常登记、幂等重放、累计金额上限、解决/驳回和审计；
 - OperationLog 审计；
 - Flyway 数据库迁移；
 - OpenAPI / Swagger；
@@ -63,12 +68,14 @@ ride-dispatch-platform/
 - 高德 `securityJsCode` Nginx 服务端安全代理模板；
 - pnpm lockfile 冻结安装与 CI 依赖缓存。
 
+Phase 2 浏览器 Gate：`e2e/phase2-passenger-admin.cjs` 已验证公共 H5 下单 → Admin 按订单派单 → 待司机确认，以及司机二维码定向下单 → 待司机确认。
+
 ## Admin Web
 
 当前 Phase 2 已实现第一版工作台：
 
 - 管理员/调度员登录；
-- 平台品牌名称 / Logo URL 配置（仅管理员可修改）；
+- 平台品牌名称与 Logo 上传/替换（仅管理员可修改，支持受控本地存储）；
 - 订单中心、状态筛选和分页；
 - 后台代客建单；
 - 订单详情；
@@ -76,12 +83,29 @@ ride-dispatch-platform/
 - 人工派单 / 待确认改派；
 - 已接单/执行中强制取消与强制改派（必填原因 + 审计）；
 - 派单历史和履约时间线；
+- 支付记录、退款异常和提现审核；
+- 支付/提现 CSV 导出与收款账号脱敏；
 - 司机列表；
 - 新增司机与车辆；
 - 司机专属下单链接；
 - Admin 高德地图 Provider / 选点能力；
 - 独立 Admin Web CI Gate；
 - 前端使用 pnpm lockfile 冻结安装并启用 CI 依赖缓存。
+
+Phase 2 浏览器 Gate：已能看到乘客 H5 创建的同一订单，并完成附近司机人工派单。
+
+## 本地可重复交付
+
+要求 Java 21、Maven 3.9+ 和 Node.js：
+
+```powershell
+./deploy/scripts/build-local.ps1
+./deploy/scripts/launch-local.ps1
+./deploy/scripts/smoke-local.ps1
+./deploy/scripts/stop-local.ps1
+```
+
+默认后端地址为 `http://localhost:8081`。`smoke-local.ps1` 会执行健康检查和 36 项 HTTP 深度冒烟；它应在刚重启的本地 H2 实例上运行。
 
 ## 核心原则
 

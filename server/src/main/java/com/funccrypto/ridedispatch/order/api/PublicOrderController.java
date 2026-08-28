@@ -2,6 +2,7 @@ package com.funccrypto.ridedispatch.order.api;
 
 import com.funccrypto.ridedispatch.order.OrderStatus;
 import com.funccrypto.ridedispatch.order.PublicOrderService;
+import com.funccrypto.ridedispatch.payment.PaymentService;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -22,9 +23,11 @@ public class PublicOrderController {
     private static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
 
     private final PublicOrderService service;
+    private final PaymentService paymentService;
 
-    public PublicOrderController(PublicOrderService service) {
+    public PublicOrderController(PublicOrderService service, PaymentService paymentService) {
         this.service = service;
+        this.paymentService = paymentService;
     }
 
     @PostMapping
@@ -52,7 +55,10 @@ public class PublicOrderController {
     PassengerOrderResponse get(
             @PathVariable String orderNo,
             @RequestHeader(PASSENGER_TOKEN_HEADER) String passengerToken) {
-        return PassengerOrderResponse.from(service.getForPassenger(orderNo, passengerToken));
+        var order = service.getForPassenger(orderNo, passengerToken);
+        var payment = paymentService.findByOrderId(order.getId()).orElse(null);
+        String paymentToken = payment == null ? null : paymentService.issueFreshToken(payment, java.time.Instant.now());
+        return PassengerOrderResponse.from(order, payment, paymentToken);
     }
 
     @PostMapping("/{orderNo}/cancel")

@@ -78,4 +78,15 @@ public class VehicleEntity {
     public int getMaxPassengers() {
         return maxPassengers;
     }
+
+    public void update(String plateNo, String brandModel, int maxPassengers, Instant now) {
+        this.plateNo = plateNo;
+        this.brandModel = brandModel;
+        this.maxPassengers = maxPassengers;
+        this.updatedAt = now;
+    }
+
+    public VehicleStatus getStatus() {
+        return status;
+    }
 }

@@ -1,0 +1,107 @@
+name: Phase 2 Browser Gate
+
+on:
+  push:
+    paths:
+      - 'server/**'
+      - 'passenger-h5/**'
+      - 'admin-web/**'
+      - 'e2e/**'
+      - '.github/workflows/phase2-browser-gate.yml'
+  pull_request:
+    paths:
+      - 'server/**'
+      - 'passenger-h5/**'
+      - 'admin-web/**'
+      - 'e2e/**'
+      - '.github/workflows/phase2-browser-gate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-gate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.19.0
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22.18.0'
+          cache: pnpm
+          cache-dependency-path: '**/pnpm-lock.yaml'
+
+      - name: Install frontend and E2E dependencies
+        run: |
+          pnpm --dir passenger-h5 install --frozen-lockfile
+          pnpm --dir admin-web install --frozen-lockfile
+          pnpm --dir e2e install --frozen-lockfile
+          pnpm --dir e2e exec playwright install --with-deps chromium
+
+      - name: Build backend and frontends
+        run: |
+          mvn -B -ntp -f server/pom.xml -DskipTests package
+          pnpm --dir passenger-h5 build
+          pnpm --dir admin-web build
+
+      - name: Start local stack
+        run: |
+          java -jar server/target/ride-dispatch-server-0.1.0-SNAPSHOT.jar \
+            --spring.profiles.active=local --server.port=8080 > /tmp/ride-dispatch-server.log 2>&1 &
+          pnpm --dir passenger-h5 dev --host 127.0.0.1 > /tmp/passenger-h5.log 2>&1 &
+          pnpm --dir admin-web dev --host 127.0.0.1 > /tmp/admin-web.log 2>&1 &
+          for i in {1..60}; do
+            curl --fail --silent http://127.0.0.1:8080/actuator/health && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:8080/actuator/health
+          for i in {1..30}; do
+            curl --fail --silent http://127.0.0.1:5173/ride > /dev/null && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:5173/ride > /dev/null
+          for i in {1..30}; do
+            curl --fail --silent http://127.0.0.1:5174/login > /dev/null && break
+            sleep 2
+          done
+          curl --fail --silent http://127.0.0.1:5174/login > /dev/null
+
+      - name: Run Phase 2 browser gate
+        env:
+          PASSENGER_URL: http://127.0.0.1:5173
+          ADMIN_URL: http://127.0.0.1:5174
+          BROWSER_CHANNEL: bundled
+        run: pnpm --dir e2e run phase2
+
+      - name: Run payment and settlement browser gate
+        env:
+          PASSENGER_URL: http://127.0.0.1:5173
+          API_URL: http://127.0.0.1:8080
+          BROWSER_CHANNEL: bundled
+        run: pnpm --dir e2e run payment:browser
+
+      - name: Upload diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase2-browser-gate-diagnostics
+          path: |
+            e2e/artifacts/
+            /tmp/ride-dispatch-server.log
+            /tmp/passenger-h5.log
+            /tmp/admin-web.log

@@ -32,6 +32,11 @@ public class DriverSelfController {
         this.service = service;
     }
 
+    @GetMapping("/state")
+    DriverSelfService.DriverStateView state(Authentication authentication) {
+        return service.getState(driverId(authentication));
+    }
+
     @PutMapping("/work-status")
     DriverSelfService.DriverStateView workStatus(
             @Valid @RequestBody WorkStatusRequest request,
@@ -59,6 +64,11 @@ public class DriverSelfController {
     @GetMapping("/qr")
     DriverSelfService.QrView qr(Authentication authentication) {
         return service.getQr(driverId(authentication));
+    }
+
+    @GetMapping("/profile")
+    DriverSelfService.ProfileView profile(Authentication authentication) {
+        return service.getProfile(driverId(authentication));
     }
 
     private Long driverId(Authentication authentication) {

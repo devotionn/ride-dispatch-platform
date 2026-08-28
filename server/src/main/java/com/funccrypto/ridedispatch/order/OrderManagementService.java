@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.LinkedHashMap;
 import java.util.UUID;
 
 import com.funccrypto.ridedispatch.audit.AuditService;
@@ -13,6 +14,7 @@ import com.funccrypto.ridedispatch.audit.OperationLogRepository;
 import com.funccrypto.ridedispatch.dispatch.DispatchAttemptEntity;
 import com.funccrypto.ridedispatch.dispatch.DispatchAttemptRepository;
 import com.funccrypto.ridedispatch.dispatch.DispatchAttemptStatus;
+import com.funccrypto.ridedispatch.payment.PaymentService;
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -34,6 +36,7 @@ public class OrderManagementService {
     private final PassengerAccessTokenService tokenService;
     private final AuditService auditService;
     private final OperationLogRepository operationLogRepository;
+    private final PaymentService paymentService;
     private final Clock clock;
 
     public OrderManagementService(
@@ -43,6 +46,7 @@ public class OrderManagementService {
             PassengerAccessTokenService tokenService,
             AuditService auditService,
             OperationLogRepository operationLogRepository,
+            PaymentService paymentService,
             Clock clock) {
         this.orderRepository = orderRepository;
         this.attemptRepository = attemptRepository;
@@ -50,6 +54,7 @@ public class OrderManagementService {
         this.tokenService = tokenService;
         this.auditService = auditService;
         this.operationLogRepository = operationLogRepository;
+        this.paymentService = paymentService;
         this.clock = clock;
     }
 
@@ -122,6 +127,55 @@ public class OrderManagementService {
         return orderRepository.findByCurrentDriverIdAndStatusInOrderByDepartureAtAsc(driverId, DRIVER_ACTIVE_STATUSES);
     }
 
+    @Transactional(readOnly = true)
+    public List<RideOrderEntity> historyForDriver(Long driverId) {
+        return orderRepository.findByCurrentDriverIdAndStatusInOrderByCreatedAtDesc(
+                driverId, List.of(OrderStatus.COMPLETED, OrderStatus.CANCELLED, OrderStatus.EXCEPTION));
+    }
+
+    @Transactional
+    public OrderStatus cancelPendingByAdmin(String orderNo, String reason, Long operatorId, String requestId) {
+        requireReason(reason);
+        RideOrderEntity order = orderRepository.findByOrderNoForUpdate(orderNo)
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
+        OrderStatus beforeStatus = order.getStatus();
+        Instant now = clock.instant();
+        order.cancelByAdminBeforeAcceptance(now);
+        invalidateWaitingAttempt(order, now);
+        auditService.log("ADMIN", operatorId, "ORDER", orderNo, "ORDER_CANCELLED_BY_ADMIN",
+                Map.of("status", beforeStatus.name()),
+                Map.of("status", order.getStatus().name()), reason, requestId, now);
+        return order.getStatus();
+    }
+
+    @Transactional
+    public OrderStatus markException(String orderNo, String reason, Long operatorId, String requestId) {
+        requireReason(reason);
+        RideOrderEntity order = orderRepository.findByOrderNoForUpdate(orderNo)
+                .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
+        OrderStatus beforeStatus = order.getStatus();
+        Instant now = clock.instant();
+        order.markException(now);
+        invalidateWaitingAttempt(order, now);
+        auditService.log("ADMIN", operatorId, "ORDER", orderNo, "ORDER_MARKED_EXCEPTION",
+                Map.of("status", beforeStatus.name()),
+                new LinkedHashMap<>(Map.of("status", order.getStatus().name())), reason, requestId, now);
+        return order.getStatus();
+    }
+
+    private void invalidateWaitingAttempt(RideOrderEntity order, Instant now) {
+        attemptRepository.findFirstByOrderIdAndStatusOrderByDispatchedAtDesc(
+                        order.getId(), DispatchAttemptStatus.WAITING)
+                .ifPresent(snapshot -> attemptRepository.findByIdForUpdate(snapshot.getId())
+                        .ifPresent(attempt -> attempt.invalidateByOrder(now)));
+    }
+
+    private void requireReason(String reason) {
+        if (reason == null || reason.isBlank()) {
+            throw new BusinessException("ADMIN_ORDER_REASON_REQUIRED", "管理操作必须填写原因");
+        }
+    }
+
     @Transactional
     public RideOrderEntity advanceTrip(String orderNo, Long driverId, TripStage nextStage, String requestId) {
         RideOrderEntity order = orderRepository.findByOrderNoForUpdate(orderNo)
@@ -152,6 +206,7 @@ public class OrderManagementService {
         OrderStatus beforeStatus = order.getStatus();
         Instant now = clock.instant();
         order.submitFinalAmount(driverId, amount, now);
+        paymentService.createForOrder(order, now);
         auditService.log(
                 "DRIVER",
                 driverId,

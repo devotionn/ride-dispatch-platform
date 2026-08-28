@@ -127,9 +127,13 @@ HTTP 可使用 `Idempotency-Key`，服务端保存 key 与结果映射并限制�
 
 ### 6.1 登录
 
-`POST /driver/auth/login`
+`POST /auth/driver/login`
 
 ### 6.2 工作状态
+
+`GET /driver/me/state`
+
+返回当前司机工作状态、当前可接人数和车辆最大载客人数。
 
 `PUT /driver/me/work-status`
 
@@ -149,7 +153,7 @@ HTTP 可使用 `Idempotency-Key`，服务端保存 key 与结果映射并限制�
 
 `GET /driver/me/qr`
 
-返回短码和可生成二维码的 H5 URL。
+返回短码、司机定向下单 H5 URL，以及可直接展示的 PNG `imageDataUrl`。
 
 ### 6.6 待确认订单
 
@@ -186,6 +190,8 @@ HTTP 可使用 `Idempotency-Key`，服务端保存 key 与结果映射并限制�
 
 `POST /driver/orders/{orderNo}/final-amount`
 
+请求体中的 `amount` 为整数“分”；司机端等业务界面以“元”录入，提交前换算为分，避免浮点金额进入服务端。
+
 ### 6.11 线下收款确认
 
 `POST /driver/orders/{orderNo}/offline-payment/confirm`
@@ -194,17 +200,24 @@ HTTP 可使用 `Idempotency-Key`，服务端保存 key 与结果映射并限制�
 
 ### 6.12 收入/账户/提现
 
+本地环境的金额边界保持一致：页面和司机输入使用“元”，接口和账本使用整数“分”。线上 Mock 支付成功增加可提现余额，线下收款只记录业务收入；所有余额变更都返回服务端最新快照。
+
 - `GET /driver/me/account`
 - `GET /driver/me/ledger`
 - `GET /driver/me/withdrawals`
 - `POST /driver/me/withdrawals`
+
+### 6.13 实时事件
+
+- `GET /driver/events`：司机 Bearer Token 订阅 SSE 事件。
+- 事件只用于快速刷新和新单提示，客户端断线后必须回退查询订单/状态接口，服务端状态机仍是最终真相。
 
 ## 7. 管理后台 API
 
 ### 7.1 品牌
 - `GET /admin/brand`：管理员 / 调度员可读。
 - `PUT /admin/brand`：仅管理员；当前实现返回 `id`、`companyName`、`logoUrl`、`updatedAt`。
-- `POST /admin/brand/logo`：未实现；当前 Admin 页面使用 Logo URL 配置。
+- `POST /admin/brand/logo`：仅管理员；multipart 上传 PNG/JPEG/WebP，最大 2MB，成功后返回最新品牌信息和受控公开 URL。
 
 ### 7.2 司机
 
@@ -266,7 +279,16 @@ HTTP 可使用 `Idempotency-Key`，服务端保存 key 与结果映射并限制�
 - `POST /admin/withdrawals/{id}/reject`
 - `POST /admin/withdrawals/{id}/mark-paid`
 
-### 7.9 审计
+### 7.9 人工退款异常
+
+本地版本由管理员或财务登记需要人工核验的退款申请；该流程只记录处理凭证和审计日志，不调用真实支付渠道，也不自动改动支付状态或司机账本。
+
+- `GET /admin/payment-exceptions`
+- `POST /admin/payment-exceptions`（必须携带 `Idempotency-Key`；同一支付单有效异常累计金额不得超过原支付金额）
+- `POST /admin/payment-exceptions/{exceptionNo}/resolve`
+- `POST /admin/payment-exceptions/{exceptionNo}/reject`
+
+### 7.10 审计
 
 `GET /admin/operation-logs`
 
@@ -284,6 +306,32 @@ HTTP 可使用 `Idempotency-Key`，服务端保存 key 与结果映射并限制�
 - 原始请求用于验签但业务日志脱敏；
 - 幂等；
 - 成功处理后按支付平台协议返回正确 ACK。
+
+### 8.1 Provider 边界（前置模型）
+
+真实 Provider 适配器必须实现下单、回调验签和主动查询三个边界；适配器只返回不可变结果，不直接修改 `Payment`、`Order` 或 `DriverLedger`。业务服务在验签、商户订单号、第三方流水号、整数分金额和幂等键校验通过后，才进入现有支付结算事务。
+
+契约字段约束：
+
+- `paymentNo`、`merchantOrderNo`、`idempotencyKey`、商品描述不可为空；
+- 金额必须是正整数分，禁止浮点数和元字符串进入 Provider；
+- 已支付回调/查询必须携带第三方流水号和金额；
+- 回调必须保留原文和签名供 Provider 验证，业务日志不得记录完整敏感载荷。
+
+当前注册表允许为空：生产未配置真实商户 Provider 时，调用方得到 `PAYMENT_PROVIDER_UNAVAILABLE`；`local` profile 的 Mock 回调仍由独立本地控制器提供，生产不会暴露该路由。
+
+### 8.2 对账差异模型
+
+对账比较器只读比较本地支付尝试快照与 Provider 查询快照，返回以下状态，不自动改账：
+
+- `MATCHED`：状态、整数分金额和已支付流水一致；
+- `LOCAL_PENDING_PROVIDER_PAID`：Provider 已支付但本地仍待支付，进入补偿队列；
+- `AMOUNT_MISMATCH`：金额不一致，优先级高于其他差异；
+- `TRANSACTION_MISMATCH`：两侧已支付但第三方流水不一致；
+- `STATUS_MISMATCH`：状态不一致；
+- `PROVIDER_ONLY` / `LOCAL_ONLY`：仅一侧存在记录。
+
+该模型当前只负责分类和安全原因码，真实主动查询、补偿、退款和财务人工处理待商户参数齐全后接入。
 
 ## 9. 实时消息
 

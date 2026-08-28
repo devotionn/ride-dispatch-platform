@@ -11,6 +11,12 @@ import com.funccrypto.ridedispatch.dispatch.DispatchAttemptStatus;
 import com.funccrypto.ridedispatch.driver.DriverEntity;
 import com.funccrypto.ridedispatch.driver.DriverRepository;
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
+import com.funccrypto.ridedispatch.payment.PaymentAttemptRepository;
+import com.funccrypto.ridedispatch.payment.PaymentExceptionRepository;
+import com.funccrypto.ridedispatch.payment.PaymentRepository;
+import com.funccrypto.ridedispatch.settlement.DriverAccountRepository;
+import com.funccrypto.ridedispatch.settlement.DriverLedgerRepository;
+import com.funccrypto.ridedispatch.settlement.WithdrawalRepository;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +43,13 @@ class PublicOrderServiceIntegrationTest {
     @Autowired
     DriverRepository driverRepository;
 
+    @Autowired PaymentAttemptRepository paymentAttemptRepository;
+    @Autowired PaymentExceptionRepository paymentExceptionRepository;
+    @Autowired PaymentRepository paymentRepository;
+    @Autowired DriverLedgerRepository driverLedgerRepository;
+    @Autowired WithdrawalRepository withdrawalRepository;
+    @Autowired DriverAccountRepository driverAccountRepository;
+
     @BeforeEach
     void beforeEach() {
         clean();
@@ -49,6 +62,12 @@ class PublicOrderServiceIntegrationTest {
 
     void clean() {
         passengerTokenRepository.deleteAll();
+        driverLedgerRepository.deleteAll();
+        withdrawalRepository.deleteAll();
+        driverAccountRepository.deleteAll();
+        paymentExceptionRepository.deleteAll();
+        paymentAttemptRepository.deleteAll();
+        paymentRepository.deleteAll();
         attemptRepository.deleteAll();
         orderRepository.deleteAll();
         driverRepository.deleteAll();
@@ -110,6 +129,16 @@ class PublicOrderServiceIntegrationTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("同一幂等键");
         assertThat(orderRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void passengerTokenCannotReadAnotherOrder() {
+        PublicOrderService.CreateOrderResult first = service.create(command(OrderSourceType.PUBLIC_H5, null));
+        PublicOrderService.CreateOrderResult second = service.create(command(OrderSourceType.PUBLIC_H5, null));
+
+        assertThatThrownBy(() -> service.getForPassenger(first.orderNo(), second.passengerAccessToken()))
+                .isInstanceOfSatisfying(BusinessException.class, exception ->
+                        assertThat(exception.getCode()).isEqualTo("ORDER_ACCESS_DENIED"));
     }
 
     private PublicOrderService.CreateOrderCommand command(OrderSourceType sourceType, String driverShortCode) {

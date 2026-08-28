@@ -132,10 +132,63 @@ export interface OperationLogView {
   id: number
   operatorType: string
   operatorId?: number | null
+  objectType?: string
+  objectId?: string
   action: string
   beforeJson?: string | null
   afterJson?: string | null
   reason?: string | null
   requestId?: string | null
   createdAt: string
+}
+
+export interface PaymentAttemptView {
+  attemptNo: string
+  channel: string
+  amount: number
+  status: string
+  merchantOrderNo: string
+  thirdPartyTransactionNo?: string | null
+  createdAt: string
+  paidAt?: string | null
+}
+
+export interface PaymentView {
+  paymentNo: string
+  orderId: number
+  amount: number
+  status: string
+  settlementMethod?: string | null
+  attempts: PaymentAttemptView[]
+}
+
+export type PaymentExceptionStatus = 'OPEN' | 'RESOLVED' | 'REJECTED'
+
+export interface PaymentExceptionView {
+  exceptionNo: string
+  paymentNo?: string | null
+  paymentId: number
+  orderId: number
+  requestedAmount: number
+  status: PaymentExceptionStatus
+  reason: string
+  externalRefundRef?: string | null
+  resolutionNote?: string | null
+  createdBy?: number | null
+  resolvedBy?: number | null
+  createdAt: string
+  resolvedAt?: string | null
+  updatedAt: string
+}
+
+export interface WithdrawalView {
+  withdrawalNo: string
+  amount: number
+  channel: string
+  account: string
+  status: string
+  reason?: string | null
+  createdAt: string
+  reviewedAt?: string | null
+  paidAt?: string | null
 }

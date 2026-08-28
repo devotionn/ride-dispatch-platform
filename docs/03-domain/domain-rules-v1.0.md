@@ -252,6 +252,14 @@ V1.3 已确认司机可选择线下收款并二次确认。
 
 该规则应正式进入 PRD V1.4 确认。
 
+### 14.1 Local Mock 结算策略
+
+- 平台抽佣为 0。
+- 线上 Mock 支付成功：`businessIncomeAmount = amount`，`withdrawableDelta = amount`。
+- 线下收款确认：`businessIncomeAmount = amount`，`withdrawableDelta = 0`。
+- 同一订单只允许一个成功 Payment；重复回调只能返回幂等结果，不能重复写入收入账本。
+- 真实商户、真实退款和自动代付必须在上线前重新确认，不由 local 测试结果推导；本地允许财务登记人工退款异常，状态为 `OPEN → RESOLVED/REJECTED`，必须填写处理凭证/备注并写入审计日志，且不自动改变 `Payment` 或司机账本。
+
 ## 15. DriverAccount 与 DriverLedger
 
 ### DriverAccount

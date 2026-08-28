@@ -104,6 +104,31 @@ button, input, textarea { font: inherit; }
 .route-line { width: 1px; height: 25px; margin: 4px 0 4px 15px; background: #dbe3ee; }
 .status-actions { padding-left: 0; padding-right: 0; }
 
+.pay-entry-card { padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.pay-entry-card h2 { margin: 0; font-size: 17px; }
+.pay-entry-card p { margin: 5px 0 0; color: var(--text-muted); font-size: 12px; line-height: 1.5; }
+.payment-hero { margin-top: 12px; padding: 28px 22px; border-radius: 26px; color: #fff; background: linear-gradient(145deg, #142c55, #2369df); box-shadow: 0 16px 38px rgba(28, 86, 188, .2); }
+.payment-hero[data-paid="true"] { background: linear-gradient(145deg, #14664f, #20a271); }
+.payment-hero strong { display: block; margin-top: 4px; font-size: 38px; letter-spacing: -.03em; }
+.payment-hero p { margin: 10px 0 0; color: rgba(255,255,255,.78); font-size: 13px; }
+.payment-status-panel, .payment-method-card, .attempts-card { padding: 18px 20px; }
+.payment-qr-card { padding: 18px 20px; text-align: center; }
+.payment-qr { display: block; width: 220px; height: 220px; margin: 12px auto 8px; border-radius: 16px; box-shadow: 0 8px 24px rgba(23, 59, 119, .12); }
+.payment-status-row { display: flex; justify-content: space-between; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--line); font-size: 13px; }
+.payment-status-row:last-child { border-bottom: 0; }
+.payment-status-row span { color: var(--text-muted); }
+.payment-status-row strong { max-width: 70%; text-align: right; overflow-wrap: anywhere; }
+.payment-status-row b[data-status="PAID"] { color: #169166; }
+.payment-methods { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0; }
+.payment-method { padding: 14px 10px; border: 1px solid var(--line); border-radius: 16px; background: #fff; color: #26364d; font-weight: 700; cursor: pointer; }
+.payment-method small { display: block; margin-top: 4px; color: #97a3b1; font-size: 11px; font-weight: 400; }
+.payment-method.selected { border-color: #2e77e7; background: #edf4ff; color: #1d5bc2; box-shadow: 0 0 0 2px rgba(46,119,231,.12); }
+.mock-actions { margin-top: 14px; padding-top: 14px; border-top: 1px dashed var(--line); }
+.mock-actions p { margin: 0 0 10px; color: #768497; font-size: 12px; }
+.mock-action-row { display: flex; gap: 10px; }
+.attempt-row { display: flex; justify-content: space-between; padding: 11px 0; border-bottom: 1px solid var(--line); color: #44546a; font-size: 13px; }
+.attempt-row:last-child { border-bottom: 0; }
+
 @media (max-width: 380px) {
   .mobile-page { padding-left: 10px; padding-right: 10px; }
   .hero-card, .form-card, .detail-card, .route-card, .access-card, .status-card { border-radius: 20px; }

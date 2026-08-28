@@ -144,6 +144,34 @@ public class DriverEntity {
         this.updatedAt = now;
     }
 
+    public void updateProfile(
+            String name,
+            String mobile,
+            String passwordHash,
+            int maxPassengers,
+            int availablePassengers,
+            Instant now) {
+        if (maxPassengers < 1 || availablePassengers < 0 || availablePassengers > maxPassengers) {
+            throw new BusinessException("DRIVER_CAPACITY_INVALID", "司机可接人数配置不合法");
+        }
+        this.name = name;
+        this.mobile = mobile;
+        if (passwordHash != null && !passwordHash.isBlank()) {
+            this.passwordHash = passwordHash;
+        }
+        this.maxPassengers = maxPassengers;
+        this.availablePassengers = availablePassengers;
+        this.updatedAt = now;
+    }
+
+    public void updateAccountStatus(DriverAccountStatus accountStatus, Instant now) {
+        this.accountStatus = accountStatus;
+        if (accountStatus == DriverAccountStatus.DISABLED) {
+            this.workStatus = DriverWorkStatus.OFFLINE;
+        }
+        this.updatedAt = now;
+    }
+
     public Long getId() {
         return id;
     }

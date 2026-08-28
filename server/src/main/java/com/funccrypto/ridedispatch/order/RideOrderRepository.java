@@ -25,6 +25,12 @@ public interface RideOrderRepository extends JpaRepository<RideOrderEntity, Long
             Long currentDriverId,
             Collection<OrderStatus> statuses);
 
+    List<RideOrderEntity> findByCurrentDriverIdAndStatusInOrderByCreatedAtDesc(
+            Long currentDriverId,
+            Collection<OrderStatus> statuses);
+
+    long countByCurrentDriverIdAndStatus(Long currentDriverId, OrderStatus status);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from RideOrderEntity o where o.orderNo = :orderNo")
     Optional<RideOrderEntity> findByOrderNoForUpdate(@Param("orderNo") String orderNo);

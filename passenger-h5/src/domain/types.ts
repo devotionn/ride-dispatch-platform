@@ -63,6 +63,10 @@ export interface PassengerOrder {
   status: OrderStatus
   tripStage?: TripStage | null
   currentDriverId?: number | null
+  driverName?: string | null
+  driverNo?: string | null
+  vehiclePlateNo?: string | null
+  vehicleBrandModel?: string | null
   pickupAddress: string
   pickupLatitude?: number | null
   pickupLongitude?: number | null

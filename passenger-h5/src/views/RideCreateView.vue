@@ -7,6 +7,7 @@ import { getPublicBrand } from '../api/brand'
 import { getPublicDriver } from '../api/drivers'
 import { createOrder } from '../api/orders'
 import PlacePicker from '../components/PlacePicker.vue'
+import SafetyCenter from '../components/SafetyCenter.vue'
 import type { CreateOrderPayload, GeoPointPayload, PlatformBrand, PublicDriverProfile } from '../domain/types'
 import { clearOrderIdempotencyKey, getOrCreateOrderIdempotencyKey } from '../storage/orderIdempotency'
 import { saveOrderToken } from '../storage/orderToken'
@@ -235,6 +236,8 @@ async function submit(): Promise<void> {
       @close="pickerTarget = null"
       @select="applyPoint"
     />
+
+    <SafetyCenter source-page="RIDE_CREATE" />
   </main>
 </template>
 

@@ -7,6 +7,8 @@ import { getPublicBrand } from '../api/brand'
 import { cancelPassengerOrder, getPassengerOrder } from '../api/orders'
 import type { OrderStatus, PassengerOrder, PlatformBrand, TripStage } from '../domain/types'
 import { loadOrderToken, saveOrderToken } from '../storage/orderToken'
+import SafetyCenter from '../components/SafetyCenter.vue'
+import ComplaintSheet from '../components/ComplaintSheet.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -18,6 +20,7 @@ const tokenInput = ref('')
 const loading = ref(false)
 const cancelling = ref(false)
 const errorMessage = ref('')
+const complaintOpen = ref(false)
 let refreshTimer: number | undefined
 
 const statusMeta: Record<OrderStatus, { title: string; description: string; tone: string }> = {
@@ -190,8 +193,26 @@ function coordinateText(latitude?: number | null, longitude?: number | null): st
 
       <div class="submit-area status-actions">
         <van-button v-if="canCancel" block round plain type="danger" :loading="cancelling" @click="cancelOrder">取消订单</van-button>
+        <van-button block round plain type="warning" @click="complaintOpen = true">投诉与建议</van-button>
         <p class="privacy-note">页面会每 15 秒自动刷新一次非终态订单。</p>
       </div>
+
+      <SafetyCenter
+        source-page="ORDER_STATUS"
+        :order-no="orderNo"
+        :passenger-token="token"
+        :driver-name="order.driverName"
+        :vehicle-plate-no="order.vehiclePlateNo"
+        :vehicle-brand-model="order.vehicleBrandModel"
+        :pickup-address="order.pickupAddress"
+        :destination-address="order.destinationAddress"
+      />
+      <ComplaintSheet
+        :open="complaintOpen"
+        :order-no="orderNo"
+        :passenger-token="token"
+        @close="complaintOpen = false"
+      />
     </template>
   </main>
 </template>

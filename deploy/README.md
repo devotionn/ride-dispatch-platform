@@ -1,6 +1,28 @@
 # 本地 / Staging / Production 部署工具
 
-## 已验证的公网服务器部署
+## 生产 Docker Compose 栈（推荐）
+
+生产级三服务栈（mysql:8.4 + Spring Boot backend + nginx，前端产物已打进镜像）：
+
+```bash
+cp deploy/production/.env.example deploy/production/.env   # 填写真实值
+mkdir -p deploy/production/certs                           # 放入 fullchain.pem / privkey.pem
+./deploy/scripts/deploy.sh                                 # build + up + 等待健康
+SMOKE_BASE_URL="https://localhost" SMOKE_INSECURE_TLS=true ./deploy/scripts/smoke-production.sh
+```
+
+配套脚本（均在 `deploy/scripts/`，凭据从 `.env` 读取）：
+
+| 脚本 | 用途 |
+| --- | --- |
+| `deploy.sh` | 检查 env → build → up → 等待 backend healthy（保留 `:rollback` 镜像 tag） |
+| `backup-mysql.sh` | mysqldump gzip 时间戳备份，保留 14 天 |
+| `restore-mysql.sh` | 覆盖式恢复，需键入 `RESTORE` 确认或 `--force` |
+| `smoke-production.sh` | 生产冒烟（默认只读） |
+
+完整文档：`docs/10-production/`（部署指南、环境变量、迁移、备份恢复、HTTPS、回滚）。
+
+## 已验证的公网服务器部署（systemd 模式，保留）
 
 当前服务器部署采用 Java 17 + MySQL 8 + systemd + Nginx，适合 3.5 GiB 内存的小型云主机：
 

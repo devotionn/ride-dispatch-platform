@@ -121,6 +121,16 @@ button, input, textarea { font: inherit; }
 .form-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 .create-order-form { margin-top: 18px; }
 .create-order-form .el-input-number { width: 100%; }
+.create-order-workbench { padding: 20px; display: grid; gap: 18px; }
+.create-order-route-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.location-work-card { border: 1px solid var(--admin-line); border-radius: 12px; padding: 16px; }
+.location-card-head > div { display: flex; align-items: center; gap: 10px; }
+.location-card-head small { color: var(--admin-muted); font-size: 11px; }
+.location-card-head h3 { margin: 2px 0 0; font-size: 15px; overflow-wrap: anywhere; }
+.create-order-passenger-card { border-top: 1px solid var(--admin-line); padding-top: 16px; }
+.create-order-submit-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--admin-line); padding-top: 16px; }
+.create-order-submit-row strong { font-size: 14px; }
+.create-order-submit-row span { display: block; margin-top: 3px; color: var(--admin-muted); font-size: 12px; }
 
 .login-page { min-height: 100vh; min-width: 1000px; display: grid; grid-template-columns: minmax(460px, 1.1fr) minmax(480px, .9fr); background: #0f1a2b; }
 .login-intro { position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; padding: 70px max(60px, 8vw); color: #fff; background: radial-gradient(circle at 18% 20%, rgba(64,135,255,.22), transparent 34%), linear-gradient(145deg,#101d32,#152a4c); }

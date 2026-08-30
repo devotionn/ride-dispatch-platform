@@ -1,19 +1,14 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue'
+import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import { createAdminOrder } from '../api/orders'
-import AdminMapPointPicker from '../components/AdminMapPointPicker.vue'
+import { searchPublicPlaces, type PlaceCatalogItem } from '../api/places'
 import type { AdminCreateOrderPayload } from '../domain/types'
-import type { MapPoint } from '../map/types'
 
 const router = useRouter()
 const submitting = ref(false)
-const pickerOpen = ref(false)
-const pickerTarget = ref<'pickup' | 'destination'>('pickup')
-const pickup = ref<MapPoint | null>(null)
-const destination = ref<MapPoint | null>(null)
 
 const form = reactive({
   passengerCount: 1,
@@ -28,46 +23,53 @@ const form = reactive({
   destinationLatitude: null as number | null,
 })
 
-const pickerTitle = computed(() => pickerTarget.value === 'pickup' ? '选择上车点' : '选择目的地')
-const pickerPoint = computed(() => pickerTarget.value === 'pickup' ? pickup.value : destination.value)
-
-function openPicker(target: 'pickup' | 'destination'): void {
-  pickerTarget.value = target
-  syncManualToPoint(target)
-  pickerOpen.value = true
-}
-
-function applyPoint(point: MapPoint): void {
-  if (pickerTarget.value === 'pickup') {
-    pickup.value = point
-    form.pickupAddress = point.address
-    form.pickupLongitude = point.longitude
-    form.pickupLatitude = point.latitude
-  } else {
-    destination.value = point
-    form.destinationAddress = point.address
-    form.destinationLongitude = point.longitude
-    form.destinationLatitude = point.latitude
+async function queryPlaces(query: string, callback: (items: Array<PlaceCatalogItem & { value: string }>) => void): Promise<void> {
+  if (query.trim().length < 2) {
+    callback([])
+    return
+  }
+  try {
+    const items = await searchPublicPlaces(query)
+    callback(items.map((item) => ({ ...item, value: item.name })))
+  } catch {
+    callback([])
   }
 }
 
-function syncManualToPoint(target: 'pickup' | 'destination'): void {
-  if (target === 'pickup') {
-    if (validPoint(form.pickupAddress, form.pickupLatitude, form.pickupLongitude)) {
-      pickup.value = { address: form.pickupAddress.trim(), latitude: form.pickupLatitude!, longitude: form.pickupLongitude! }
-    }
-  } else if (validPoint(form.destinationAddress, form.destinationLatitude, form.destinationLongitude)) {
-    destination.value = { address: form.destinationAddress.trim(), latitude: form.destinationLatitude!, longitude: form.destinationLongitude! }
-  }
+function selectPickup(place: PlaceCatalogItem): void {
+  form.pickupAddress = place.addressText || place.name
+  form.pickupLatitude = place.latitude ?? null
+  form.pickupLongitude = place.longitude ?? null
+}
+
+function selectDestination(place: PlaceCatalogItem): void {
+  form.destinationAddress = place.addressText || place.name
+  form.destinationLatitude = place.latitude ?? null
+  form.destinationLongitude = place.longitude ?? null
+}
+
+function coordinatePairValid(latitude: number | null, longitude: number | null): boolean {
+  if (latitude === null && longitude === null) return true
+  if (latitude === null || longitude === null) return false
+  return Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
+    && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
 }
 
 async function submit(): Promise<void> {
-  if (!validPoint(form.pickupAddress, form.pickupLatitude, form.pickupLongitude)) {
-    ElMessage.warning('请通过地图选择或完整填写上车点地址与坐标')
+  if (!form.pickupAddress.trim()) {
+    ElMessage.warning('请填写上车点')
     return
   }
-  if (!validPoint(form.destinationAddress, form.destinationLatitude, form.destinationLongitude)) {
-    ElMessage.warning('请通过地图选择或完整填写目的地地址与坐标')
+  if (!form.destinationAddress.trim()) {
+    ElMessage.warning('请填写目的地')
+    return
+  }
+  if (!coordinatePairValid(form.pickupLatitude, form.pickupLongitude)) {
+    ElMessage.warning('上车点经纬度必须同时填写且格式正确，或全部留空')
+    return
+  }
+  if (!coordinatePairValid(form.destinationLatitude, form.destinationLongitude)) {
+    ElMessage.warning('目的地经纬度必须同时填写且格式正确，或全部留空')
     return
   }
   if (!/^1\d{10}$/.test(form.mobile)) {
@@ -82,13 +84,13 @@ async function submit(): Promise<void> {
   const payload: AdminCreateOrderPayload = {
     pickup: {
       address: form.pickupAddress.trim(),
-      latitude: form.pickupLatitude!,
-      longitude: form.pickupLongitude!,
+      latitude: form.pickupLatitude,
+      longitude: form.pickupLongitude,
     },
     destination: {
       address: form.destinationAddress.trim(),
-      latitude: form.destinationLatitude!,
-      longitude: form.destinationLongitude!,
+      latitude: form.destinationLatitude,
+      longitude: form.destinationLongitude,
     },
     passengerCount: form.passengerCount,
     departureAt: form.departureAt.toISOString(),
@@ -107,12 +109,6 @@ async function submit(): Promise<void> {
     submitting.value = false
   }
 }
-
-function validPoint(address: string, latitude: number | null, longitude: number | null): boolean {
-  return Boolean(address.trim())
-    && latitude !== null && Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
-    && longitude !== null && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
-}
 </script>
 
 <template>
@@ -121,7 +117,7 @@ function validPoint(address: string, latitude: number | null, longitude: number 
       <div>
         <p class="page-kicker">ASSISTED BOOKING</p>
         <h1>后台代客建单</h1>
-        <p>适用于电话、现场或其他非 H5 渠道的乘客，由调度员代为录入真实行程。</p>
+        <p>适用于电话、现场或其他非 H5 渠道的乘客。地点可从常用地点库选择，也可直接手工填写。</p>
       </div>
       <div class="page-actions">
         <el-button @click="router.push({ name: 'orders' })">返回订单中心</el-button>
@@ -132,29 +128,59 @@ function validPoint(address: string, latitude: number | null, longitude: number 
       <div class="create-order-route-grid">
         <div class="location-work-card">
           <div class="location-card-head">
-            <div><span class="point-a">A</span><section><small>上车点</small><h3>{{ form.pickupAddress || '尚未选择' }}</h3></section></div>
-            <el-button type="primary" plain @click="openPicker('pickup')">地图选择上车点</el-button>
+            <div><span class="point-a">A</span><section><small>上车点</small><h3>{{ form.pickupAddress || '尚未填写' }}</h3></section></div>
           </div>
           <el-form label-position="top">
-            <el-form-item label="地址"><el-input v-model="form.pickupAddress" placeholder="地图选择后自动回填，也可手工修正" /></el-form-item>
+            <el-form-item label="搜索 / 输入上车地点">
+              <el-autocomplete
+                v-model="form.pickupAddress"
+                :fetch-suggestions="queryPlaces"
+                clearable
+                style="width:100%"
+                placeholder="输入至少 2 个字搜索常用地点，或直接填写"
+                @select="selectPickup"
+              >
+                <template #default="{ item }">
+                  <div><strong>{{ item.name }}</strong><small style="display:block;color:#909399">{{ item.addressText }}</small></div>
+                </template>
+              </el-autocomplete>
+            </el-form-item>
             <div class="form-grid two">
-              <el-form-item label="经度"><el-input-number v-model="form.pickupLongitude" :controls="false" :precision="7" /></el-form-item>
-              <el-form-item label="纬度"><el-input-number v-model="form.pickupLatitude" :controls="false" :precision="7" /></el-form-item>
+              <el-form-item label="经度（选填）"><el-input-number v-model="form.pickupLongitude" :controls="false" :precision="7" /></el-form-item>
+              <el-form-item label="纬度（选填）"><el-input-number v-model="form.pickupLatitude" :controls="false" :precision="7" /></el-form-item>
             </div>
+            <el-alert v-if="form.pickupAddress && form.pickupLatitude === null && form.pickupLongitude === null" type="warning" :closable="false" show-icon>
+              上车点暂无定位坐标：订单仍可创建，但无法自动计算 10km 内附近司机，需要人工选择司机。
+            </el-alert>
           </el-form>
         </div>
 
         <div class="location-work-card">
           <div class="location-card-head">
-            <div><span class="point-b">B</span><section><small>目的地</small><h3>{{ form.destinationAddress || '尚未选择' }}</h3></section></div>
-            <el-button type="primary" plain @click="openPicker('destination')">地图选择目的地</el-button>
+            <div><span class="point-b">B</span><section><small>目的地</small><h3>{{ form.destinationAddress || '尚未填写' }}</h3></section></div>
           </div>
           <el-form label-position="top">
-            <el-form-item label="地址"><el-input v-model="form.destinationAddress" placeholder="地图选择后自动回填，也可手工修正" /></el-form-item>
+            <el-form-item label="搜索 / 输入目的地">
+              <el-autocomplete
+                v-model="form.destinationAddress"
+                :fetch-suggestions="queryPlaces"
+                clearable
+                style="width:100%"
+                placeholder="输入至少 2 个字搜索常用地点，或直接填写"
+                @select="selectDestination"
+              >
+                <template #default="{ item }">
+                  <div><strong>{{ item.name }}</strong><small style="display:block;color:#909399">{{ item.addressText }}</small></div>
+                </template>
+              </el-autocomplete>
+            </el-form-item>
             <div class="form-grid two">
-              <el-form-item label="经度"><el-input-number v-model="form.destinationLongitude" :controls="false" :precision="7" /></el-form-item>
-              <el-form-item label="纬度"><el-input-number v-model="form.destinationLatitude" :controls="false" :precision="7" /></el-form-item>
+              <el-form-item label="经度（选填）"><el-input-number v-model="form.destinationLongitude" :controls="false" :precision="7" /></el-form-item>
+              <el-form-item label="纬度（选填）"><el-input-number v-model="form.destinationLatitude" :controls="false" :precision="7" /></el-form-item>
             </div>
+            <el-alert v-if="form.destinationAddress && form.destinationLatitude === null && form.destinationLongitude === null" type="info" :closable="false" show-icon>
+              目的地仅有文字地址也可正常创建和履约。
+            </el-alert>
           </el-form>
         </div>
       </div>
@@ -172,16 +198,9 @@ function validPoint(address: string, latitude: number | null, longitude: number 
       </div>
 
       <div class="create-order-submit-row">
-        <div><strong>创建后状态：待接单</strong><span>随后可在订单中心查询 10km 内有效司机并人工派单。</span></div>
+        <div><strong>创建后状态：待接单</strong><span>上车点有坐标时可自动筛选附近司机；无坐标时仍可人工派单。</span></div>
         <el-button type="primary" size="large" :loading="submitting" @click="submit">创建订单</el-button>
       </div>
     </section>
-
-    <AdminMapPointPicker
-      v-model="pickerOpen"
-      :title="pickerTitle"
-      :point="pickerPoint"
-      @select="applyPoint"
-    />
   </section>
 </template>

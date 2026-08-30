@@ -6,7 +6,7 @@ export interface SafetyAlarmPayload {
   sourcePage: string
   latitude?: number | null
   longitude?: number | null
-  locationText?: string
+  locationText?: string | null
 }
 
 export interface SafetyAlarmResult {

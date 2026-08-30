@@ -16,9 +16,15 @@ spring:
           time_zone: UTC
   flyway:
     enabled: true
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
 
 server:
   port: ${SERVER_PORT:8080}
+  # Trust X-Forwarded-* from the reverse proxy so scheme/client IP resolve correctly.
+  forward-headers-strategy: framework
+  # Finish in-flight requests on SIGTERM before the container stops.
+  shutdown: graceful
 
 management:
   endpoints:

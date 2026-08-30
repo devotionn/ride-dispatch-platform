@@ -4,6 +4,8 @@ import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
@@ -20,6 +22,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @RestControllerAdvice
 public class ApiExceptionHandler {
+
+    private static final Logger log = LoggerFactory.getLogger(ApiExceptionHandler.class);
 
     @ExceptionHandler(BusinessException.class)
     ResponseEntity<ApiError> handleBusiness(BusinessException exception, HttpServletRequest request) {
@@ -76,6 +80,9 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     ResponseEntity<ApiError> handleUnexpected(Exception exception, HttpServletRequest request) {
+        // Without this the client only sees a generic 500 and the error is invisible in production logs.
+        log.error("Unhandled API error on {} {}: {}",
+                request.getMethod(), request.getRequestURI(), requestId(request), exception);
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(new ApiError("INTERNAL_ERROR", "服务暂时不可用", requestId(request)));
     }

@@ -23,6 +23,11 @@
 *.log
 /data/
 
+# Production deploy artifacts (certificates and database dumps never go in Git)
+deploy/production/.env
+deploy/production/certs/
+deploy/production/backups/
+
 # Browser acceptance diagnostics
 e2e/artifacts/
 

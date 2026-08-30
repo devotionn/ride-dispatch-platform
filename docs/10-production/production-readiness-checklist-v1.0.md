@@ -4,6 +4,34 @@
 - 目的：区分“代码功能完成”和“真实司机、真钱、正式业务可以上线”。
 - 本清单不是法律意见；涉及经营许可、监管上报、支付结算、备案和隐私义务的项目，应由甲方和对应专业服务方确认实际适用要求。
 
+## 状态标注（2026-08-30，Production Readiness Foundation 阶段）
+
+每项标注：DONE（已完成并验证）/ MANUAL REQUIRED（需人工操作）/ EXTERNAL BLOCKER（依赖外部资源）/ NOT APPLICABLE（本阶段不适用）。
+
+| 条目 | 状态 | 说明 |
+| --- | --- | --- |
+| 生产 MySQL（Docker 栈，非 H2） | DONE | mysql:8.4 + Flyway V001–V012 空库与二次启动实测；见 mysql-migration-guide.md |
+| Docker 生产 compose 栈 | DONE | mysql/backend/nginx 三服务，healthcheck、持久卷、restart 策略；见 production-deployment-guide.md |
+| Nginx 反代 + SPA fallback | DONE | 80/443/8443，SSE 透传，限流；本地产物实测 |
+| HTTPS 配置（TLS1.2+、80→443、安全头） | DONE（配置） | 自签证书本地验证；正式证书见下一行 |
+| 真实域名 DNS + Let's Encrypt 证书 | EXTERNAL BLOCKER | 需真实域名；测试服务器暂用自签证书（IP 版） |
+| 生产 profile / 环境变量模板 | DONE | application-production.yml + deploy/production/.env.example |
+| 管理员首启凭据 gate | DONE | 环境变量引导 + 生产拒绝已知默认密码（单测覆盖） |
+| 数据库备份/恢复脚本 | DONE | backup/restore 演练通过；见 backup-and-restore-runbook.md |
+| 备份异地保存 | MANUAL REQUIRED | 演练仅本地；生产需复制到独立存储 |
+| 生产冒烟脚本 | DONE | deploy/scripts/smoke-production.sh，本地与服务器端均全过 |
+| MySQL Flyway CI gate | DONE | Production Infra CI（mysql 8.4 service + 迁移 + 重启验证） |
+| 真实 Linux 服务器部署 | DONE（测试服务器） | 2026-08-30 部署至阿里云测试 ECS（Docker 栈 + 旧库数据迁移 + 重启自动恢复验证）；见 production-deployment-guide.md 附录 |
+| 443 端口安全组放行 | DONE | 2026-08-30 已放行 TCP 80/443，外网 HTTPS 验证通过 |
+| 真实支付渠道（微信/支付宝） | EXTERNAL BLOCKER | 当前为线下/人工记账模型，无网关集成 |
+| 厂商 Push | EXTERNAL BLOCKER | 未接入 |
+| 日志脱敏基线 | DONE（检查） | 代码无 Authorization/token/密码明文日志；生产 stdout+docker logging |
+| MySQL 3306 公网暴露 | DONE（防护） | compose 未发布 3306，仅内部网络 |
+| Actuator 暴露范围 | DONE（检查） | 仅 health,info；公网只经 nginx 反代 /api/，actuator 不出容器网络 |
+| Swagger/OpenAPI 生产关闭 | DONE | production profile 禁用 springdoc |
+| 上传目录持久化 | DONE | brand-data volume；文件类型/大小/文件名校验已有 |
+| API 5xx / DB / 支付告警 | NOT APPLICABLE（本阶段） | 属监控告警后续阶段，未引入 |
+
 ## A. 业务经营模式
 
 - [ ] 甲方确认系统实际用于哪类客运/预约接送业务。

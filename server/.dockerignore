@@ -1,0 +1,5 @@
+# Keep the backend build context (server/) minimal.
+target/
+logs/
+*.log
+.mvn/

@@ -1,0 +1,220 @@
+name: Production Infra CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+    paths:
+      - 'deploy/**'
+      - 'server/**'
+      - 'passenger-h5/**'
+      - 'admin-web/**'
+      - '.dockerignore'
+      - '.gitattributes'
+      - '.github/workflows/production-infra-ci.yml'
+  pull_request:
+    paths:
+      - 'deploy/**'
+      - 'server/**'
+      - 'passenger-h5/**'
+      - 'admin-web/**'
+      - '.dockerignore'
+      - '.gitattributes'
+      - '.github/workflows/production-infra-ci.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compose-config:
+    name: Compose config, nginx syntax, shellcheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Write throwaway CI env file (placeholder secrets only)
+        run: |
+          umask 077
+          cat > /tmp/production-ci.env <<EOF
+          APP_DOMAIN=ci.invalid
+          DB_NAME=ride_dispatch
+          DB_USERNAME=ride_dispatch
+          DB_PASSWORD=ci-only-$(openssl rand -hex 12)
+          MYSQL_ROOT_PASSWORD=ci-only-$(openssl rand -hex 12)
+          ADMIN_BOOTSTRAP_USERNAME=admin
+          ADMIN_BOOTSTRAP_PASSWORD=ci-only-$(openssl rand -hex 12)
+          EOF
+
+      - name: Validate compose file
+        run: docker compose -f deploy/docker-compose.production.yml --env-file /tmp/production-ci.env config --quiet
+
+      - name: Generate throwaway self-signed certificate for nginx -t
+        run: |
+          mkdir -p /tmp/ngx-certs
+          openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+            -keyout /tmp/ngx-certs/privkey.pem \
+            -out /tmp/ngx-certs/fullchain.pem \
+            -subj '/CN=localhost'
+
+      - name: Check nginx config syntax
+        run: |
+          docker run --rm \
+            -v "$PWD/deploy/production/nginx/ride-dispatch.prod.conf:/etc/nginx/conf.d/ride-dispatch.conf:ro" \
+            -v /tmp/ngx-certs:/etc/nginx/certs:ro \
+            nginx:1.28-alpine nginx -t
+
+      - name: Shellcheck deploy scripts
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+          shellcheck deploy/scripts/*.sh
+
+  docker-build:
+    name: Docker compose build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Write throwaway CI env file (placeholder secrets only)
+        run: |
+          umask 077
+          cat > /tmp/production-ci.env <<EOF
+          APP_DOMAIN=ci.invalid
+          DB_NAME=ride_dispatch
+          DB_USERNAME=ride_dispatch
+          DB_PASSWORD=ci-only-$(openssl rand -hex 12)
+          MYSQL_ROOT_PASSWORD=ci-only-$(openssl rand -hex 12)
+          ADMIN_BOOTSTRAP_USERNAME=admin
+          ADMIN_BOOTSTRAP_PASSWORD=ci-only-$(openssl rand -hex 12)
+          EOF
+
+      - name: Build backend and nginx images
+        run: docker compose -f deploy/docker-compose.production.yml --env-file /tmp/production-ci.env build
+
+  mysql-flyway-gate:
+    name: MySQL Flyway migration gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: ride_dispatch_ci
+          MYSQL_USER: ride
+          MYSQL_PASSWORD: ci-only-test-password
+          MYSQL_ROOT_PASSWORD: ci-only-root-password
+          TZ: Asia/Shanghai
+        ports:
+          - '3306:3306'
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -pci-only-root-password"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+          cache-dependency-path: server/pom.xml
+
+      - name: Package backend (tests run in Backend CI)
+        run: mvn -B -ntp -f server/pom.xml -DskipTests package
+
+      - name: Start backend against MySQL with the production profile
+        working-directory: server
+        env:
+          SPRING_PROFILES_ACTIVE: production
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: ride_dispatch_ci
+          DB_USERNAME: ride
+          # Throwaway CI credential, never a real secret.
+          DB_PASSWORD: ci-only-test-password
+          BRAND_LOGO_UPLOAD_DIR: /tmp/brand-uploads
+          ADMIN_BOOTSTRAP_USERNAME: ci-admin
+          ADMIN_BOOTSTRAP_PASSWORD: ci-only-bootstrap-password
+        run: |
+          mkdir -p /tmp/brand-uploads
+          nohup java -jar target/ride-dispatch-server-0.1.0-SNAPSHOT.jar > /tmp/backend-first.log 2>&1 &
+          echo $! > /tmp/backend.pid
+
+      - name: Wait for first startup health
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "Backend UP on first startup"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Backend did not become healthy"; tail -100 /tmp/backend-first.log; exit 1
+
+      - name: Assert Flyway history after first startup
+        run: |
+          docker run --rm --network host mysql:8.4 mysql -h127.0.0.1 -uride -pci-only-test-password ride_dispatch_ci -N -e \
+            "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1;" > /tmp/flyway_count.txt
+          COUNT=$(cat /tmp/flyway_count.txt)
+          echo "Applied migrations: $COUNT"
+          test "$COUNT" -eq 12
+          docker run --rm --network host mysql:8.4 mysql -h127.0.0.1 -uride -pci-only-test-password ride_dispatch_ci -N -e \
+            "SELECT \`version\` FROM flyway_schema_history ORDER BY installed_rank;" > /tmp/flyway_versions.txt
+          cat /tmp/flyway_versions.txt
+          for v in 001 002 003 004 005 006 007 008 009 010 011 012; do grep -qx "$v" /tmp/flyway_versions.txt; done
+
+      - name: Assert utf8mb4 and Chinese round-trip
+        run: |
+          CHARSET=$(docker run --rm --network host mysql:8.4 mysql -h127.0.0.1 -uride -pci-only-test-password ride_dispatch_ci -N -e \
+            "SELECT @@character_set_database;")
+          echo "Database charset: $CHARSET"
+          test "$CHARSET" = "utf8mb4"
+          docker run --rm --network host mysql:8.4 mysql -h127.0.0.1 -uride -pci-only-test-password ride_dispatch_ci -e \
+            "INSERT INTO platform_brand (company_name, updated_at) VALUES ('生产化中文验证车队', NOW(6));"
+          FOUND=$(docker run --rm --network host mysql:8.4 mysql -h127.0.0.1 -uride -pci-only-test-password ride_dispatch_ci -N -e \
+            "SELECT COUNT(*) FROM platform_brand WHERE company_name = '生产化中文验证车队';")
+          test "$FOUND" -eq 1
+
+      - name: Restart backend against the same database
+        run: |
+          kill "$(cat /tmp/backend.pid)" 2>/dev/null || true
+          for i in $(seq 1 30); do
+            kill -0 "$(cat /tmp/backend.pid)" 2>/dev/null || break
+            sleep 2
+          done
+          cd server
+          SPRING_PROFILES_ACTIVE=production \
+          DB_HOST=127.0.0.1 DB_PORT=3306 DB_NAME=ride_dispatch_ci \
+          DB_USERNAME=ride DB_PASSWORD=ci-only-test-password \
+          BRAND_LOGO_UPLOAD_DIR=/tmp/brand-uploads \
+          ADMIN_BOOTSTRAP_USERNAME=ci-admin ADMIN_BOOTSTRAP_PASSWORD=ci-only-bootstrap-password \
+          nohup java -jar target/ride-dispatch-server-0.1.0-SNAPSHOT.jar > /tmp/backend-second.log 2>&1 &
+          echo $! > /tmp/backend.pid
+
+      - name: Wait for second startup health and assert no duplicate migrations
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "Backend UP on second startup"
+              COUNT=$(docker run --rm --network host mysql:8.4 mysql -h127.0.0.1 -uride -pci-only-test-password ride_dispatch_ci -N -e \
+                "SELECT COUNT(*) FROM flyway_schema_history WHERE success = 1;")
+              echo "Applied migrations after restart: $COUNT"
+              test "$COUNT" -eq 12
+              FOUND=$(docker run --rm --network host mysql:8.4 mysql -h127.0.0.1 -uride -pci-only-test-password ride_dispatch_ci -N -e \
+                "SELECT COUNT(*) FROM platform_brand WHERE company_name = '生产化中文验证车队';")
+              echo "Chinese brand row survived restart: $FOUND"
+              test "$FOUND" -eq 1
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "Backend did not become healthy on second startup"; tail -100 /tmp/backend-second.log; exit 1

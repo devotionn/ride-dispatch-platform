@@ -132,6 +132,20 @@ class PublicOrderServiceIntegrationTest {
     }
 
     @Test
+    void publicOrderAllowsTextOnlyPickupAndDestination() {
+        Instant departure = Instant.now().plusSeconds(3600);
+        PublicOrderService.CreateOrderResult result = service.create(new PublicOrderService.CreateOrderCommand(
+                OrderSourceType.PUBLIC_H5, null, "扬州东站北广场", null, null,
+                "瘦西湖东门", null, null, 2, departure, "13800000000", null));
+
+        RideOrderEntity order = orderRepository.findByOrderNo(result.orderNo()).orElseThrow();
+        assertThat(order.getPickupLatitude()).isNull();
+        assertThat(order.getPickupLongitude()).isNull();
+        assertThat(order.getDestinationLatitude()).isNull();
+        assertThat(order.getDestinationLongitude()).isNull();
+    }
+
+    @Test
     void passengerTokenCannotReadAnotherOrder() {
         PublicOrderService.CreateOrderResult first = service.create(command(OrderSourceType.PUBLIC_H5, null));
         PublicOrderService.CreateOrderResult second = service.create(command(OrderSourceType.PUBLIC_H5, null));

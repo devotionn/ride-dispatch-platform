@@ -62,6 +62,13 @@ public class PlaceCatalogService {
         return place;
     }
 
+    @Transactional
+    public void recordUseIfEnabled(Long id) {
+        if (id == null) return;
+        repository.findById(id).filter(PlaceCatalogEntity::isEnabled)
+                .ifPresent(place -> place.markUsed(clock.instant()));
+    }
+
     private void validate(Command command) {
         if (command.name() == null || command.name().isBlank()) {
             throw new BusinessException("PLACE_NAME_REQUIRED", "地点名称不能为空");

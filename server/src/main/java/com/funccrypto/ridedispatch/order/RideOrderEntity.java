@@ -29,11 +29,11 @@ public class RideOrderEntity {
     @Column(name = "idempotency_key", unique = true, length = 80) private String idempotencyKey;
     @Column(name = "request_fingerprint", length = 64) private String requestFingerprint;
     @Column(name = "pickup_address", nullable = false, length = 255) private String pickupAddress;
-    @Column(name = "pickup_latitude", nullable = false, precision = 10, scale = 7) private BigDecimal pickupLatitude;
-    @Column(name = "pickup_longitude", nullable = false, precision = 10, scale = 7) private BigDecimal pickupLongitude;
+    @Column(name = "pickup_latitude", precision = 10, scale = 7) private BigDecimal pickupLatitude;
+    @Column(name = "pickup_longitude", precision = 10, scale = 7) private BigDecimal pickupLongitude;
     @Column(name = "destination_address", nullable = false, length = 255) private String destinationAddress;
-    @Column(name = "destination_latitude", nullable = false, precision = 10, scale = 7) private BigDecimal destinationLatitude;
-    @Column(name = "destination_longitude", nullable = false, precision = 10, scale = 7) private BigDecimal destinationLongitude;
+    @Column(name = "destination_latitude", precision = 10, scale = 7) private BigDecimal destinationLatitude;
+    @Column(name = "destination_longitude", precision = 10, scale = 7) private BigDecimal destinationLongitude;
     @Column(name = "passenger_count", nullable = false) private int passengerCount;
     @Column(name = "departure_at", nullable = false) private Instant departureAt;
     @Column(length = 500) private String remark;

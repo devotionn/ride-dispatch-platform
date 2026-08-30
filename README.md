@@ -37,7 +37,7 @@ ride-dispatch-platform/
 - 公共 H5、司机二维码、后台代客三种订单入口；
 - Passenger Access Token；
 - Passenger 下单 `Idempotency-Key` 防弱网重复订单；
-- 10km + 位置 5 分钟有效 + 可接人数附近司机筛选；
+- 有坐标订单使用 10km + 位置 5 分钟有效 + 可接人数附近司机筛选；无坐标订单退化为符合资格司机的人工派单；
 - 人工派单、司机接受/拒绝、待确认改派；
 - 执行中强制取消 / 强制改派，原司机责任保持到新司机确认；
 - DispatchAttempt 完整历史；
@@ -62,10 +62,8 @@ ride-dispatch-platform/
 - Passenger Token 本机保存与恢复；
 - 接单前取消；
 - 订单状态自动刷新；
-- 高德 JS API 2.0 POI 搜索、定位、逆地理、地图选点；
-- 无地图配置时手工地址/经纬度联调兜底；
+- 浏览器原生定位、内置 Place Catalog 搜索和手工地址输入；经纬度可为空；
 - 弱网自动重试 + 同一 Idempotency-Key；
-- 高德 `securityJsCode` Nginx 服务端安全代理模板；
 - pnpm lockfile 冻结安装与 CI 依赖缓存。
 
 Phase 2 浏览器 Gate：`e2e/phase2-passenger-admin.cjs` 已验证公共 H5 下单 → Admin 按订单派单 → 待司机确认，以及司机二维码定向下单 → 待司机确认。
@@ -88,7 +86,7 @@ Phase 2 浏览器 Gate：`e2e/phase2-passenger-admin.cjs` 已验证公共 H5 下
 - 司机列表；
 - 新增司机与车辆；
 - 司机专属下单链接；
-- Admin 高德地图 Provider / 选点能力；
+- 常用地点目录管理、文本地址建单和无坐标人工派单；
 - 独立 Admin Web CI Gate；
 - 前端使用 pnpm lockfile 冻结安装并启用 CI 依赖缓存。
 

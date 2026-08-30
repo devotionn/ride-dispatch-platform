@@ -10,7 +10,8 @@ import jakarta.validation.constraints.NotBlank;
 public record GeoPointRequest(
         @NotBlank String address,
         @DecimalMin("-90") @DecimalMax("90") BigDecimal latitude,
-        @DecimalMin("-180") @DecimalMax("180") BigDecimal longitude) {
+        @DecimalMin("-180") @DecimalMax("180") BigDecimal longitude,
+        Long placeId) {
 
     public boolean hasCoordinates() {
         return latitude != null && longitude != null;

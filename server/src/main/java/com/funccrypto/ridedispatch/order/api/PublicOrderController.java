@@ -3,6 +3,7 @@ package com.funccrypto.ridedispatch.order.api;
 import com.funccrypto.ridedispatch.order.OrderStatus;
 import com.funccrypto.ridedispatch.order.PublicOrderService;
 import com.funccrypto.ridedispatch.payment.PaymentService;
+import com.funccrypto.ridedispatch.place.PlaceCatalogService;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -24,10 +25,12 @@ public class PublicOrderController {
 
     private final PublicOrderService service;
     private final PaymentService paymentService;
+    private final PlaceCatalogService placeCatalogService;
 
-    public PublicOrderController(PublicOrderService service, PaymentService paymentService) {
+    public PublicOrderController(PublicOrderService service, PaymentService paymentService, PlaceCatalogService placeCatalogService) {
         this.service = service;
         this.paymentService = paymentService;
+        this.placeCatalogService = placeCatalogService;
     }
 
     @PostMapping
@@ -48,6 +51,9 @@ public class PublicOrderController {
                 request.departureAt().toInstant(),
                 request.mobile(),
                 request.remark()), idempotencyKey);
+        // Catalog statistics are intentionally best-effort and outside the order transaction.
+        placeCatalogService.recordUseIfEnabled(request.pickup().placeId());
+        placeCatalogService.recordUseIfEnabled(request.destination().placeId());
         return new CreateOrderResponse(result.orderNo(), result.status(), result.passengerAccessToken());
     }
 

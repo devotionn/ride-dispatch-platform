@@ -101,6 +101,24 @@ class NearbyDriverServiceIntegrationTest {
         assertThat(result).extracting(NearbyDriverView::driverId).containsExactly(near.getId());
     }
 
+    @Test
+    void textOnlyPickupReturnsEligibleDriversWithoutDistanceCalculation() {
+        Instant now = Instant.now();
+        DriverEntity driver = driverRepository.save(DriverEntity.create(
+                "D204", "人工派单司机", "13800000204", 4, 4, "QRD204", now));
+        PublicOrderService.CreateOrderResult order = publicOrderService.create(new PublicOrderService.CreateOrderCommand(
+                OrderSourceType.PUBLIC_H5, null, "扬州东站北广场", null, null,
+                "瘦西湖", null, null, 2, now.plusSeconds(3600), "13800000000", null));
+
+        List<NearbyDriverView> result = nearbyDriverService.findNearby(order.orderNo());
+
+        assertThat(result).singleElement().satisfies(candidate -> {
+            assertThat(candidate.driverId()).isEqualTo(driver.getId());
+            assertThat(candidate.straightLineDistanceKm()).isNull();
+            assertThat(candidate.locatedAt()).isNull();
+        });
+    }
+
     private DriverLocationCurrentEntity location(Long driverId, String lat, String lng, Instant locatedAt) {
         return new DriverLocationCurrentEntity(
                 driverId,

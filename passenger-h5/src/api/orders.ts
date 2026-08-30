@@ -8,6 +8,7 @@ function apiLocation(point: GeoPointPayload) {
     address: point.address,
     latitude: point.latitude ?? null,
     longitude: point.longitude ?? null,
+    placeId: point.placeId ?? null,
   }
 }
 

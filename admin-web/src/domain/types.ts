@@ -102,8 +102,8 @@ export interface NearbyDriver {
   driverNo: string
   driverName: string
   availablePassengers: number
-  straightLineDistanceKm: number
-  locatedAt: string
+  straightLineDistanceKm?: number | null
+  locatedAt?: string | null
 }
 
 export interface GeoPointPayload {

@@ -7,6 +7,6 @@ public record NearbyDriverView(
         String driverNo,
         String driverName,
         int availablePassengers,
-        double straightLineDistanceKm,
+        Double straightLineDistanceKm,
         Instant locatedAt) {
 }

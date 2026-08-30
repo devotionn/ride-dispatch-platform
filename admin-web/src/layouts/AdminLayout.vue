@@ -53,6 +53,10 @@ async function logout(): Promise<void> {
           <span>平台品牌</span>
           <small>名称 · Logo</small>
         </router-link>
+        <router-link to="/places" :class="{ active: route.path.startsWith('/places') }">
+          <span>常用地点</span>
+          <small>地点目录 · 文本搜索</small>
+        </router-link>
         <router-link to="/payments" :class="{ active: route.path.startsWith('/payments') }">
           <span>支付记录</span>
           <small>支付单 · 回调 · 渠道</small>

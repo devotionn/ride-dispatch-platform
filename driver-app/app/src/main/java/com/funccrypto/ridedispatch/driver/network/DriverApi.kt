@@ -383,6 +383,9 @@ private fun JSONObject.stringOrNull(name: String): String? =
 private fun JSONObject.longOrNull(name: String): Long? =
     if (has(name) && !isNull(name)) getLong(name) else null
 
+private fun JSONObject.doubleOrNull(name: String): Double? =
+    if (has(name) && !isNull(name)) getDouble(name) else null
+
 private fun DriverState.Companion.from(root: JSONObject): DriverState = DriverState(
     driverId = root.getLong("driverId"),
     workStatus = WorkStatus.valueOf(root.getString("workStatus")),
@@ -396,7 +399,11 @@ private fun DriverOrder.Companion.from(root: JSONObject): DriverOrder = DriverOr
     tripStage = root.stringOrNull("tripStage").toTripStage(),
     passengerMobile = root.getString("passengerMobile"),
     pickupAddress = root.getString("pickupAddress"),
+    pickupLatitude = root.doubleOrNull("pickupLatitude"),
+    pickupLongitude = root.doubleOrNull("pickupLongitude"),
     destinationAddress = root.getString("destinationAddress"),
+    destinationLatitude = root.doubleOrNull("destinationLatitude"),
+    destinationLongitude = root.doubleOrNull("destinationLongitude"),
     passengerCount = root.getInt("passengerCount"),
     departureAt = root.getString("departureAt"),
     remark = root.stringOrNull("remark"),

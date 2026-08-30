@@ -22,7 +22,7 @@
 | 生产冒烟脚本 | DONE | deploy/scripts/smoke-production.sh，本地与服务器端均全过 |
 | MySQL Flyway CI gate | DONE | Production Infra CI（mysql 8.4 service + 迁移 + 重启验证） |
 | 真实 Linux 服务器部署 | DONE（测试服务器） | 2026-08-30 部署至阿里云测试 ECS（Docker 栈 + 旧库数据迁移 + 重启自动恢复验证）；见 production-deployment-guide.md 附录 |
-| 443 端口安全组放行 | MANUAL REQUIRED | 阿里云控制台加入方向 TCP 443（80/8088 已放行） |
+| 443 端口安全组放行 | DONE | 2026-08-30 已放行 TCP 80/443，外网 HTTPS 验证通过 |
 | 真实支付渠道（微信/支付宝） | EXTERNAL BLOCKER | 当前为线下/人工记账模型，无网关集成 |
 | 厂商 Push | EXTERNAL BLOCKER | 未接入 |
 | 日志脱敏基线 | DONE（检查） | 代码无 Authorization/token/密码明文日志；生产 stdout+docker logging |

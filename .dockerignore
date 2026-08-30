@@ -1,0 +1,24 @@
+# Context for the production nginx image is the repository root. Whitelist only
+# what the frontend builds and the nginx config actually need.
+**
+!passenger-h5/package.json
+!passenger-h5/pnpm-lock.yaml
+!passenger-h5/index.html
+!passenger-h5/vite.config.*
+!passenger-h5/tsconfig*.json
+!passenger-h5/src/**
+!passenger-h5/public/**
+!admin-web/package.json
+!admin-web/pnpm-lock.yaml
+!admin-web/index.html
+!admin-web/vite.config.*
+!admin-web/tsconfig*.json
+!admin-web/src/**
+!admin-web/public/**
+!deploy/production/nginx/ride-dispatch.prod.conf
+
+# Frontend build inputs must never include installed deps or stale artifacts.
+passenger-h5/node_modules
+passenger-h5/dist
+admin-web/node_modules
+admin-web/dist

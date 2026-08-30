@@ -14,14 +14,15 @@
 | Docker 生产 compose 栈 | DONE | mysql/backend/nginx 三服务，healthcheck、持久卷、restart 策略；见 production-deployment-guide.md |
 | Nginx 反代 + SPA fallback | DONE | 80/443/8443，SSE 透传，限流；本地产物实测 |
 | HTTPS 配置（TLS1.2+、80→443、安全头） | DONE（配置） | 自签证书本地验证；正式证书见下一行 |
-| 真实域名 DNS + Let's Encrypt 证书 | EXTERNAL BLOCKER | 需真实域名与服务器；见 https-and-domain-setup.md |
+| 真实域名 DNS + Let's Encrypt 证书 | EXTERNAL BLOCKER | 需真实域名；测试服务器暂用自签证书（IP 版） |
 | 生产 profile / 环境变量模板 | DONE | application-production.yml + deploy/production/.env.example |
 | 管理员首启凭据 gate | DONE | 环境变量引导 + 生产拒绝已知默认密码（单测覆盖） |
 | 数据库备份/恢复脚本 | DONE | backup/restore 演练通过；见 backup-and-restore-runbook.md |
 | 备份异地保存 | MANUAL REQUIRED | 演练仅本地；生产需复制到独立存储 |
-| 生产冒烟脚本 | DONE | deploy/scripts/smoke-production.sh，本地 Gate 全过 |
+| 生产冒烟脚本 | DONE | deploy/scripts/smoke-production.sh，本地与服务器端均全过 |
 | MySQL Flyway CI gate | DONE | Production Infra CI（mysql 8.4 service + 迁移 + 重启验证） |
-| 真实 Linux 服务器部署 | EXTERNAL BLOCKER | 本阶段完成 local production-like Docker Gate |
+| 真实 Linux 服务器部署 | DONE（测试服务器） | 2026-08-30 部署至阿里云测试 ECS（Docker 栈 + 旧库数据迁移 + 重启自动恢复验证）；见 production-deployment-guide.md 附录 |
+| 443 端口安全组放行 | MANUAL REQUIRED | 阿里云控制台加入方向 TCP 443（80/8088 已放行） |
 | 真实支付渠道（微信/支付宝） | EXTERNAL BLOCKER | 当前为线下/人工记账模型，无网关集成 |
 | 厂商 Push | EXTERNAL BLOCKER | 未接入 |
 | 日志脱敏基线 | DONE（检查） | 代码无 Authorization/token/密码明文日志；生产 stdout+docker logging |

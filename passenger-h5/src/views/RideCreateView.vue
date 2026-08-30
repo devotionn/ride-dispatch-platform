@@ -6,9 +6,8 @@ import { closeToast, showFailToast, showLoadingToast, showSuccessToast } from 'v
 import { getPublicBrand } from '../api/brand'
 import { getPublicDriver } from '../api/drivers'
 import { createOrder } from '../api/orders'
-import MapPointPicker from '../components/MapPointPicker.vue'
-import type { CreateOrderPayload, PlatformBrand, PublicDriverProfile } from '../domain/types'
-import type { MapPoint } from '../map/types'
+import PlacePicker from '../components/PlacePicker.vue'
+import type { CreateOrderPayload, GeoPointPayload, PlatformBrand, PublicDriverProfile } from '../domain/types'
 import { clearOrderIdempotencyKey, getOrCreateOrderIdempotencyKey } from '../storage/orderIdempotency'
 import { saveOrderToken } from '../storage/orderToken'
 
@@ -19,8 +18,8 @@ const driverProfile = ref<PublicDriverProfile | null>(null)
 const driverError = ref('')
 const driverLoading = ref(false)
 const submitting = ref(false)
-const pickup = ref<MapPoint | null>(null)
-const destination = ref<MapPoint | null>(null)
+const pickup = ref<GeoPointPayload | null>(null)
+const destination = ref<GeoPointPayload | null>(null)
 const pickerTarget = ref<'pickup' | 'destination' | null>(null)
 
 const form = reactive({
@@ -87,7 +86,7 @@ function openPicker(target: 'pickup' | 'destination'): void {
   pickerTarget.value = target
 }
 
-function applyPoint(point: MapPoint): void {
+function applyPoint(point: GeoPointPayload): void {
   if (pickerTarget.value === 'destination') destination.value = point
   else pickup.value = point
   pickerTarget.value = null
@@ -99,8 +98,8 @@ async function submit(): Promise<void> {
     showFailToast(driverError.value || '正在确认司机信息，请稍后')
     return
   }
-  if (!pickup.value || !destination.value) {
-    showFailToast('请选择上车点和目的地')
+  if (!pickup.value?.address.trim() || !destination.value?.address.trim()) {
+    showFailToast('请填写上车点和目的地')
     return
   }
   if (!/^1\d{10}$/.test(form.mobile)) {
@@ -189,7 +188,8 @@ async function submit(): Promise<void> {
           <span class="route-badge pickup">A</span>
           <div>
             <small>上车点</small>
-            <strong :class="{ placeholder: !pickup }">{{ pickup?.address || '定位、搜索或地图选点' }}</strong>
+            <strong :class="{ placeholder: !pickup }">{{ pickup?.address || '定位、搜索或手工填写' }}</strong>
+            <small v-if="pickup && pickup.latitude == null" class="route-location-note">暂无坐标，将由后台人工调度</small>
           </div>
           <b>选择</b>
         </button>
@@ -198,7 +198,7 @@ async function submit(): Promise<void> {
           <span class="route-badge destination">B</span>
           <div>
             <small>目的地</small>
-            <strong :class="{ placeholder: !destination }">{{ destination?.address || '搜索或地图选点' }}</strong>
+            <strong :class="{ placeholder: !destination }">{{ destination?.address || '搜索或手工填写' }}</strong>
           </div>
           <b>选择</b>
         </button>
@@ -227,12 +227,17 @@ async function submit(): Promise<void> {
       </van-form>
     </section>
 
-    <MapPointPicker
+    <PlacePicker
       :open="pickerTarget !== null"
       :title="pickerTitle"
       :model-value="pickerPoint"
+      :allow-current-location="pickerTarget === 'pickup'"
       @close="pickerTarget = null"
       @select="applyPoint"
     />
   </main>
 </template>
+
+<style scoped>
+.route-location-note{display:block;margin-top:4px;color:#c77800;font-weight:500}
+</style>

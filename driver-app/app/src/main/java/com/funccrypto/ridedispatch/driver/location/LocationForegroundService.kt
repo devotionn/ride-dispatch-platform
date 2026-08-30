@@ -1,6 +1,7 @@
 package com.funccrypto.ridedispatch.driver.location
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
@@ -49,8 +50,10 @@ class LocationForegroundService : Service() {
         startForeground(NOTIFICATION_ID, notification().build())
     }
 
+    @SuppressLint("MissingPermission") // Guarded immediately below; SecurityException also stops the service safely.
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (!hasLocationPermission()) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED
+            && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             stopSelf()
             return START_NOT_STICKY
         }
@@ -190,12 +193,6 @@ class LocationForegroundService : Service() {
     } else {
         0
     }
-
-    private fun hasLocationPermission(): Boolean =
-        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
-            PackageManager.PERMISSION_GRANTED
 
     private fun notification(): NotificationCompat.Builder =
         NotificationCompat.Builder(this, CHANNEL_ID)

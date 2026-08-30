@@ -2,12 +2,15 @@ package com.funccrypto.ridedispatch.driver
 
 import android.Manifest
 import android.content.Context
+import android.content.ClipData
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Bundle
 import android.os.Build
 import android.graphics.BitmapFactory
 import android.util.Base64
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -746,6 +749,12 @@ private fun ActiveOrderCard(
 ) {
     var amount by rememberSaveable(order.orderNo) { mutableStateOf("") }
     val nextStage = nextTripStage(order.tripStage)
+    val context = LocalContext.current
+    val destinationNavigation = order.tripStage == TripStage.PASSENGER_ONBOARD ||
+        order.tripStage == TripStage.IN_TRANSIT || order.tripStage == TripStage.ARRIVED_DESTINATION
+    val navigationAddress = if (destinationNavigation) order.destinationAddress else order.pickupAddress
+    val navigationLatitude = if (destinationNavigation) order.destinationLatitude else order.pickupLatitude
+    val navigationLongitude = if (destinationNavigation) order.destinationLongitude else order.pickupLongitude
 
     OrderCard {
         OrderHeader(order.orderNo, order.status.label(), DriverBlue)
@@ -764,6 +773,12 @@ private fun ActiveOrderCard(
                 }
             }
         }
+        OutlinedButton(
+            enabled = enabled,
+            onClick = { openExternalNavigation(context, navigationAddress, navigationLatitude, navigationLongitude) },
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+        ) { Text(if (destinationNavigation) "导航到目的地" else "导航到上车点") }
         if (nextStage != null) {
             Button(
                 enabled = enabled,
@@ -791,6 +806,28 @@ private fun ActiveOrderCard(
             ) { Text("提交最终金额") }
         }
     }
+}
+
+private fun openExternalNavigation(context: Context, address: String, latitude: Double?, longitude: Double?) {
+    val normalizedAddress = normalizeNavigationAddress(address)
+    if (normalizedAddress == null) {
+        Toast.makeText(context, "导航地址为空，无法导航。", Toast.LENGTH_LONG).show()
+        return
+    }
+    val query = if (latitude != null && longitude != null) {
+        "$latitude,$longitude(${Uri.encode(normalizedAddress)})"
+    } else {
+        Uri.encode(normalizedAddress)
+    }
+    val uri = if (latitude != null && longitude != null) "geo:$latitude,$longitude?q=$query" else "geo:0,0?q=$query"
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+    if (intent.resolveActivity(context.packageManager) != null) {
+        context.startActivity(Intent.createChooser(intent, "选择地图导航应用"))
+        return
+    }
+    context.getSystemService(android.content.ClipboardManager::class.java)
+        ?.setPrimaryClip(ClipData.newPlainText("导航地址", normalizedAddress))
+    Toast.makeText(context, "未检测到可用的地图导航应用，地址已复制，可手动导航。", Toast.LENGTH_LONG).show()
 }
 
 @Composable

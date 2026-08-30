@@ -109,6 +109,8 @@ Append exact test counts, deployment result, and remaining external blockers to 
 
 ## Execution result (2026-08-25)
 
+> 历史环境记录：本节的 Android JDK21、Java17 target JAR 和测试数量仅代表 2026-08-25 当日，不代表当前 Android Gate。当前 Android compile/jvmTarget/Gate 使用 Temurin JDK17，当前后端 Gate 使用 Java 21；最新轻量定位基线见 [2026-08-30 验收策略](../06-testing/acceptance-and-test-strategy-v1.0.md)。
+
 - Task 1-3 complete: provider contract, empty/duplicate-safe registry, reconciliation comparator, tests and API documentation.
 - Focused tests: 11/11 PASS; full Maven verify: 47/47 PASS.
 - Admin Web, Passenger H5, Android JDK21 + SDK35 build: PASS.

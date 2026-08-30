@@ -68,11 +68,15 @@ const statusOptions: Array<{ value: OrderStatus; label: string }> = [
 ]
 
 const canDispatch = computed(() => detail.value?.order.status === 'PENDING_DISPATCH')
+const hasPickupCoordinates = computed(() => {
+  const order = detail.value?.order
+  return order?.pickupLatitude != null && order.pickupLongitude != null
+})
 const canReassign = computed(() => detail.value?.order.status === 'PENDING_DRIVER_CONFIRM')
 const canForceOperate = computed(() => ['ACCEPTED', 'IN_SERVICE'].includes(detail.value?.order.status ?? ''))
 const canCancelPending = computed(() => ['PENDING_DISPATCH', 'PENDING_DRIVER_CONFIRM'].includes(detail.value?.order.status ?? ''))
 const canMarkException = computed(() => !['COMPLETED', 'CANCELLED', 'EXCEPTION'].includes(detail.value?.order.status ?? ''))
-const forcedWaiting = computed(() => canReassign && currentWaitingDriverId.value !== null && detail.value?.order.currentDriverId !== null)
+const forcedWaiting = computed(() => canReassign.value && currentWaitingDriverId.value !== null && detail.value?.order.currentDriverId !== null)
 const currentWaitingDriverId = computed(() => {
   const attempts = detail.value?.dispatchAttempts ?? []
   return [...attempts].reverse().find((item) => item.status === 'WAITING')?.targetDriverId ?? null
@@ -247,11 +251,16 @@ async function submitAdminOrder(): Promise<void> {
     ElMessage.warning('请填写上车点和目的地')
     return
   }
-  if (!coordinateValid(createForm.pickupLatitude, -90, 90) || !coordinateValid(createForm.destinationLatitude, -90, 90)) {
+  if (!coordinatePairValid(createForm.pickupLatitude, createForm.pickupLongitude)
+    || !coordinatePairValid(createForm.destinationLatitude, createForm.destinationLongitude)) {
+    ElMessage.warning('经纬度必须同时填写或同时留空')
+    return
+  }
+  if (!coordinateValidOrEmpty(createForm.pickupLatitude, -90, 90) || !coordinateValidOrEmpty(createForm.destinationLatitude, -90, 90)) {
     ElMessage.warning('请填写正确的纬度')
     return
   }
-  if (!coordinateValid(createForm.pickupLongitude, -180, 180) || !coordinateValid(createForm.destinationLongitude, -180, 180)) {
+  if (!coordinateValidOrEmpty(createForm.pickupLongitude, -180, 180) || !coordinateValidOrEmpty(createForm.destinationLongitude, -180, 180)) {
     ElMessage.warning('请填写正确的经度')
     return
   }
@@ -267,13 +276,13 @@ async function submitAdminOrder(): Promise<void> {
   const payload: AdminCreateOrderPayload = {
     pickup: {
       address: createForm.pickupAddress.trim(),
-      latitude: createForm.pickupLatitude!,
-      longitude: createForm.pickupLongitude!,
+      latitude: createForm.pickupLatitude,
+      longitude: createForm.pickupLongitude,
     },
     destination: {
       address: createForm.destinationAddress.trim(),
-      latitude: createForm.destinationLatitude!,
-      longitude: createForm.destinationLongitude!,
+      latitude: createForm.destinationLatitude,
+      longitude: createForm.destinationLongitude,
     },
     passengerCount: createForm.passengerCount,
     departureAt: createForm.departureAt.toISOString(),
@@ -311,8 +320,12 @@ function resetCreateForm(): void {
   createForm.remark = ''
 }
 
-function coordinateValid(value: number | null, min: number, max: number): boolean {
-  return value !== null && Number.isFinite(value) && value >= min && value <= max
+function coordinatePairValid(latitude: number | null | undefined, longitude: number | null | undefined): boolean {
+  return (latitude == null) === (longitude == null)
+}
+
+function coordinateValidOrEmpty(value: number | null | undefined, min: number, max: number): boolean {
+  return value == null || (Number.isFinite(value) && value >= min && value <= max)
 }
 
 function statusLabel(status: OrderStatus): string {
@@ -517,23 +530,24 @@ function messageOf(error: unknown): string {
         </div>
 
         <div class="drawer-route-card">
-          <div><span class="point-a">A</span><section><small>上车点</small><strong>{{ detail.order.pickupAddress }}</strong><em>{{ detail.order.pickupLongitude }}, {{ detail.order.pickupLatitude }}</em></section></div>
+          <div><span class="point-a">A</span><section><small>上车点</small><strong>{{ detail.order.pickupAddress }}</strong><em>{{ hasPickupCoordinates ? `${detail.order.pickupLongitude}, ${detail.order.pickupLatitude}` : '无定位坐标 · 人工派单' }}</em></section></div>
           <div class="route-rail" />
-          <div><span class="point-b">B</span><section><small>目的地</small><strong>{{ detail.order.destinationAddress }}</strong><em>{{ detail.order.destinationLongitude }}, {{ detail.order.destinationLatitude }}</em></section></div>
+          <div><span class="point-b">B</span><section><small>目的地</small><strong>{{ detail.order.destinationAddress }}</strong><em>{{ detail.order.destinationLatitude != null && detail.order.destinationLongitude != null ? `${detail.order.destinationLongitude}, ${detail.order.destinationLatitude}` : '无定位坐标' }}</em></section></div>
         </div>
 
-        <section v-if="canDispatch || canReassign || canForceOperate" class="drawer-section dispatch-section">
+        <section v-if="canDispatch || canReassign || canForceOperate" class="drawer-section dispatch-section" data-testid="dispatch-panel">
           <div class="drawer-section-heading">
-            <div><span>人工调度</span><h3>{{ canDispatch ? '选择附近司机派单' : canForceOperate ? '选择附近司机强制改派' : '等待司机确认，可直接改派' }}</h3></div>
-            <el-button size="small" :loading="nearbyLoading" @click="loadNearby(detail.order.orderNo)">刷新附近司机</el-button>
+            <div><span>人工调度</span><h3>{{ canDispatch ? (hasPickupCoordinates ? '选择附近司机派单' : '无定位坐标 · 人工选择司机派单') : canForceOperate ? '选择附近司机强制改派' : '等待司机确认，可直接改派' }}</h3></div>
+            <el-button size="small" :loading="nearbyLoading" @click="loadNearby(detail.order.orderNo)">刷新候选司机</el-button>
           </div>
+          <el-alert v-if="!hasPickupCoordinates" type="info" :closable="false" show-icon title="该订单没有定位坐标，无法计算附近司机；以下为符合接单条件的司机，请人工选择派单。" />
           <el-alert v-if="forcedWaiting" type="warning" :closable="false" show-icon title="强制改派确认中：原司机仍为责任司机，新司机接受前不会交接。" />
           <el-alert v-else-if="canReassign && currentWaitingDriverId" type="warning" :closable="false" show-icon :title="`当前待确认司机 ID：${currentWaitingDriverId}。改派后原派单立即失效。`" />
-          <el-table v-loading="nearbyLoading" :data="nearbyDrivers" empty-text="10km 内暂无符合条件司机" class="nearby-table">
+          <el-table v-loading="nearbyLoading" :data="nearbyDrivers" :empty-text="hasPickupCoordinates ? '10km 内暂无符合条件司机' : '暂无符合条件司机'" class="nearby-table" data-testid="dispatch-candidates">
             <el-table-column label="司机" min-width="150"><template #default="scope"><div class="stack-cell"><strong>{{ scope.row.driverName }}</strong><span>{{ scope.row.driverNo }}</span></div></template></el-table-column>
             <el-table-column label="可接人数" width="100"><template #default="scope">{{ scope.row.availablePassengers }} 人</template></el-table-column>
-            <el-table-column label="直线距离" width="110"><template #default="scope">{{ scope.row.straightLineDistanceKm.toFixed(2) }} km</template></el-table-column>
-            <el-table-column label="定位时间" width="145"><template #default="scope">{{ formatTime(scope.row.locatedAt) }}</template></el-table-column>
+            <el-table-column label="直线距离" width="110"><template #default="scope">{{ scope.row.straightLineDistanceKm == null ? '—' : `${scope.row.straightLineDistanceKm.toFixed(2)} km` }}</template></el-table-column>
+            <el-table-column label="定位时间" width="145"><template #default="scope">{{ scope.row.locatedAt ? formatTime(scope.row.locatedAt) : '—' }}</template></el-table-column>
             <el-table-column label="操作" width="110" fixed="right">
               <template #default="scope">
                 <el-button
@@ -596,7 +610,7 @@ function messageOf(error: unknown): string {
     </el-drawer>
 
     <el-dialog v-model="createOpen" title="后台代客创建订单" width="min(720px, 92vw)" destroy-on-close @closed="resetCreateForm">
-      <el-alert type="info" :closable="false" title="首版后台建单使用地址 + 经纬度。调度员地图选点将在同一地图 Provider 上继续接入。" />
+      <el-alert type="info" :closable="false" title="后台建单可从常用地点目录选择或手工输入；经纬度可同时留空。无坐标上车点会进入符合资格司机的人工派单。" />
       <el-form label-position="top" class="create-order-form">
         <div class="form-grid two">
           <el-form-item label="上车点地址"><el-input v-model="createForm.pickupAddress" placeholder="请输入上车点" /></el-form-item>

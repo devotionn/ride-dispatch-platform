@@ -4,7 +4,8 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/ride_dispatch?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai}
     username: ${DB_USERNAME:ride}
-    password: ${DB_PASSWORD:ride_dev_password}
+    # Production/staging must provide DB_PASSWORD; the local profile uses H2.
+    password: ${DB_PASSWORD:}
   jpa:
     open-in-view: false
     hibernate:

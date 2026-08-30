@@ -121,6 +121,11 @@ function formatTime(value?: string | null): string {
     month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
   }).format(new Date(value))
 }
+
+function coordinateText(latitude?: number | null, longitude?: number | null): string {
+  if (latitude == null || longitude == null) return '无定位坐标（文字地址）'
+  return `${longitude}, ${latitude}`
+}
 </script>
 
 <template>
@@ -178,9 +183,9 @@ function formatTime(value?: string | null): string {
       </section>
 
       <section class="surface-card route-card">
-        <div class="route-point pickup"><span>A</span><div><small>上车点</small><strong>{{ order.pickupAddress }}</strong><em>{{ order.pickupLatitude }}, {{ order.pickupLongitude }}</em></div></div>
+        <div class="route-point pickup"><span>A</span><div><small>上车点</small><strong>{{ order.pickupAddress }}</strong><em>{{ coordinateText(order.pickupLatitude, order.pickupLongitude) }}</em></div></div>
         <div class="route-line" />
-        <div class="route-point destination"><span>B</span><div><small>目的地</small><strong>{{ order.destinationAddress }}</strong><em>{{ order.destinationLatitude }}, {{ order.destinationLongitude }}</em></div></div>
+        <div class="route-point destination"><span>B</span><div><small>目的地</small><strong>{{ order.destinationAddress }}</strong><em>{{ coordinateText(order.destinationLatitude, order.destinationLongitude) }}</em></div></div>
       </section>
 
       <div class="submit-area status-actions">

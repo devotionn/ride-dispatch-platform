@@ -12,6 +12,7 @@ import com.funccrypto.ridedispatch.driver.DriverAccountStatus;
 import com.funccrypto.ridedispatch.driver.DriverEntity;
 import com.funccrypto.ridedispatch.driver.DriverRepository;
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -50,6 +51,8 @@ public class PublicOrderService {
 
     @Transactional
     public CreateOrderResult create(CreateOrderCommand command, String rawIdempotencyKey) {
+        validateCoordinatePair(command.pickupLatitude(), command.pickupLongitude(), "上车点");
+        validateCoordinatePair(command.destinationLatitude(), command.destinationLongitude(), "目的地");
         if (command.sourceType() == OrderSourceType.ADMIN_CREATED) {
             throw new BusinessException("INVALID_ORDER_SOURCE", "公共接口不能创建后台代客订单");
         }
@@ -115,7 +118,7 @@ public class PublicOrderService {
                     now));
         }
 
-        return new CreateOrderResult(order.getOrderNo(), order.getStatus(), token.raw());
+        return new CreateOrderResult(order.getOrderNo(), order.getStatus(), token.raw(), true);
     }
 
     @Transactional(readOnly = true)
@@ -149,7 +152,7 @@ public class PublicOrderService {
         PassengerAccessTokenService.GeneratedToken replayToken = tokenService.generate();
         passengerTokenRepository.save(new PassengerOrderAccessTokenEntity(
                 existing.getId(), replayToken.hash(), now));
-        return new CreateOrderResult(existing.getOrderNo(), existing.getStatus(), replayToken.raw());
+        return new CreateOrderResult(existing.getOrderNo(), existing.getStatus(), replayToken.raw(), false);
     }
 
     private void verifyToken(RideOrderEntity order, String accessToken) {
@@ -191,6 +194,24 @@ public class PublicOrderService {
             String remark) {
     }
 
-    public record CreateOrderResult(String orderNo, OrderStatus status, String passengerAccessToken) {
+    public record CreateOrderResult(
+            String orderNo,
+            OrderStatus status,
+            String passengerAccessToken,
+            boolean newlyCreated) {
+    }
+
+    private void validateCoordinatePair(java.math.BigDecimal latitude, java.math.BigDecimal longitude, String label) {
+        if ((latitude == null) != (longitude == null)) {
+            throw new BusinessException("COORDINATES_INCOMPLETE", label + "经纬度必须同时填写或同时留空", HttpStatus.BAD_REQUEST);
+        }
+        if (latitude != null && (latitude.compareTo(java.math.BigDecimal.valueOf(-90)) < 0
+                || latitude.compareTo(java.math.BigDecimal.valueOf(90)) > 0)) {
+            throw new BusinessException("LATITUDE_INVALID", label + "纬度必须在 -90 到 90 之间", HttpStatus.BAD_REQUEST);
+        }
+        if (longitude != null && (longitude.compareTo(java.math.BigDecimal.valueOf(-180)) < 0
+                || longitude.compareTo(java.math.BigDecimal.valueOf(180)) > 0)) {
+            throw new BusinessException("LONGITUDE_INVALID", label + "经度必须在 -180 到 180 之间", HttpStatus.BAD_REQUEST);
+        }
     }
 }

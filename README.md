@@ -9,7 +9,7 @@
 - 产品基线：PRD V1.3
 - 技术基线：Technical Implementation V1.0
 - Phase 1 Backend Core：核心订单/司机/定位/派单/认证/履约 API 已实现，已验证主链路 CI PASS
-- Phase 2：Passenger H5 + Admin Web 已完成浏览器 Gate（2026-08-23）；公共下单、后台人工派单、司机定向入口均已验证
+- Phase 2：Passenger H5 + Admin Web 浏览器 Gate 已通过（2026-08-30）；三种定位输入、后台人工派单和司机定向入口均已验证
 - 当前状态：本地支付/结算、人工退款异常、提现审核、Admin 报表、Android 司机工作台和本地通知均已接入；当前下一步是服务器环境接入与真实外部渠道准备
 - 真实微信/支付宝商户、Android Push 厂商、监管接口等外部生产资料尚未确定
 - 已接单/执行中强制改派的责任交接语义仍按 PRD V1.4 Proposal 管理，不擅自固化
@@ -37,7 +37,7 @@ ride-dispatch-platform/
 - 公共 H5、司机二维码、后台代客三种订单入口；
 - Passenger Access Token；
 - Passenger 下单 `Idempotency-Key` 防弱网重复订单；
-- 10km + 位置 5 分钟有效 + 可接人数附近司机筛选；
+- 有坐标订单使用 10km + 位置 5 分钟有效 + 可接人数附近司机筛选；无坐标订单退化为符合资格司机的人工派单；
 - 人工派单、司机接受/拒绝、待确认改派；
 - 执行中强制取消 / 强制改派，原司机责任保持到新司机确认；
 - DispatchAttempt 完整历史；
@@ -62,13 +62,17 @@ ride-dispatch-platform/
 - Passenger Token 本机保存与恢复；
 - 接单前取消；
 - 订单状态自动刷新；
-- 高德 JS API 2.0 POI 搜索、定位、逆地理、地图选点；
-- 无地图配置时手工地址/经纬度联调兜底；
+- 浏览器原生定位、内置 Place Catalog 搜索和手工地址输入；经纬度可为空；
 - 弱网自动重试 + 同一 Idempotency-Key；
-- 高德 `securityJsCode` Nginx 服务端安全代理模板；
 - pnpm lockfile 冻结安装与 CI 依赖缓存。
 
-Phase 2 浏览器 Gate：`e2e/phase2-passenger-admin.cjs` 已验证公共 H5 下单 → Admin 按订单派单 → 待司机确认，以及司机二维码定向下单 → 待司机确认。
+Phase 2 浏览器 Gate（3 个场景）已通过：
+
+1. 公共 H5 纯文字地址下单 → Admin 看到无坐标提示 → 符合资格司机人工派单；
+2. 公共 H5 浏览器原生定位上车点 + 手工目的地 → Admin 验证坐标和距离；
+3. 司机二维码定向下单 → 订单保持 `PENDING_DRIVER_CONFIRM`。
+
+该链路只使用浏览器原生定位、Place Catalog 和手工地址，不集成商业地图 SDK 或地图 Key。后端 Java 21 `mvn clean verify` 当前为 55 个测试通过，Passenger H5 和 Admin Web 构建也已通过。
 
 ## Admin Web
 
@@ -79,7 +83,7 @@ Phase 2 浏览器 Gate：`e2e/phase2-passenger-admin.cjs` 已验证公共 H5 下
 - 订单中心、状态筛选和分页；
 - 后台代客建单；
 - 订单详情；
-- 附近司机；
+- 有坐标时按 10km/5 分钟位置规则筛选附近司机；无坐标时展示符合条件司机供人工派单；
 - 人工派单 / 待确认改派；
 - 已接单/执行中强制取消与强制改派（必填原因 + 审计）；
 - 派单历史和履约时间线；
@@ -88,11 +92,11 @@ Phase 2 浏览器 Gate：`e2e/phase2-passenger-admin.cjs` 已验证公共 H5 下
 - 司机列表；
 - 新增司机与车辆；
 - 司机专属下单链接；
-- Admin 高德地图 Provider / 选点能力；
+- 常用地点目录管理、文本地址建单和无坐标人工派单；
 - 独立 Admin Web CI Gate；
 - 前端使用 pnpm lockfile 冻结安装并启用 CI 依赖缓存。
 
-Phase 2 浏览器 Gate：已能看到乘客 H5 创建的同一订单，并完成附近司机人工派单。
+Phase 2 浏览器 Gate：已能看到乘客 H5 创建的同一订单，并完成有坐标距离派单与无坐标人工派单。
 
 ## 本地可重复交付
 

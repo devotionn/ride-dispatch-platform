@@ -31,7 +31,7 @@
 - 本次 Provider/对账模型加入后 Maven `verify`：47 tests，0 failures。
 - Admin Web：`vue-tsc + vite build` PASS。
 - Passenger H5：`vue-tsc + vite build` PASS。
-- Android：使用 JDK 21、`ANDROID_HOME=D:\dev_tool\Android\Sdk` 构建，`testDebugUnitTest assembleDebug` PASS；APK 指向公网 API。
+- Android：该历史报告使用 JDK 21、`ANDROID_HOME=D:\dev_tool\Android\Sdk` 构建，`testDebugUnitTest assembleDebug` PASS；这不代表当前 Android Gate 基线。当前项目 compile/jvmTarget 与 Gate 已统一为 Temurin JDK 17；APK 指向公网 API。
 
 Provider 前置模型已部署但不改变生产支付写入：生产注册表为空，真实渠道尚未配置；请求本地 Mock 回调仍得到结构化 `404 NOT_FOUND`。对账比较器当前只做只读差异分类，不自动改账。
 

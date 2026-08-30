@@ -49,12 +49,22 @@ public class NearbyDriverService {
     public List<NearbyDriverView> findNearby(String orderNo) {
         RideOrderEntity order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
-
         List<DriverEntity> candidates = driverRepository
                 .findByAccountStatusAndWorkStatusAndAvailablePassengersGreaterThanEqual(
                         DriverAccountStatus.ACTIVE,
                         DriverWorkStatus.AVAILABLE,
                         order.getPassengerCount());
+
+        // A text-only pickup can still be dispatched safely.  Deliberately do
+        // not read driver locations or invoke the distance function in this mode.
+        if (order.getPickupLatitude() == null || order.getPickupLongitude() == null) {
+            return candidates.stream()
+                    .sorted(Comparator.comparing(DriverEntity::getDriverNo))
+                    .map(driver -> new NearbyDriverView(
+                            driver.getId(), driver.getDriverNo(), driver.getName(),
+                            driver.getAvailablePassengers(), null, null))
+                    .toList();
+        }
 
         Map<Long, DriverLocationCurrentEntity> locations = locationRepository
                 .findAllById(candidates.stream().map(DriverEntity::getId).toList())
@@ -102,6 +112,9 @@ public class NearbyDriverService {
         double a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2)
                 + Math.cos(phi1) * Math.cos(phi2)
                 * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+        // Rounding at the antipodal boundary can produce a value just above
+        // one, which would otherwise turn the distance into NaN.
+        a = Math.max(0.0, Math.min(1.0, a));
         return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }

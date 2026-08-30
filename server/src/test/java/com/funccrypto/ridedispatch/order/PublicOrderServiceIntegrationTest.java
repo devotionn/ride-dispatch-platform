@@ -104,6 +104,8 @@ class PublicOrderServiceIntegrationTest {
         PublicOrderService.CreateOrderResult first = service.create(command, key);
         PublicOrderService.CreateOrderResult second = service.create(command, key);
 
+        assertThat(first.newlyCreated()).isTrue();
+        assertThat(second.newlyCreated()).isFalse();
         assertThat(second.orderNo()).isEqualTo(first.orderNo());
         assertThat(second.passengerAccessToken()).isNotEqualTo(first.passengerAccessToken());
         assertThat(orderRepository.count()).isEqualTo(1);
@@ -129,6 +131,34 @@ class PublicOrderServiceIntegrationTest {
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("同一幂等键");
         assertThat(orderRepository.count()).isEqualTo(1);
+    }
+
+    @Test
+    void publicOrderAllowsTextOnlyPickupAndDestination() {
+        Instant departure = Instant.now().plusSeconds(3600);
+        PublicOrderService.CreateOrderResult result = service.create(new PublicOrderService.CreateOrderCommand(
+                OrderSourceType.PUBLIC_H5, null, "扬州东站北广场", null, null,
+                "瘦西湖东门", null, null, 2, departure, "13800000000", null));
+
+        RideOrderEntity order = orderRepository.findByOrderNo(result.orderNo()).orElseThrow();
+        assertThat(order.getPickupLatitude()).isNull();
+        assertThat(order.getPickupLongitude()).isNull();
+        assertThat(order.getDestinationLatitude()).isNull();
+        assertThat(order.getDestinationLongitude()).isNull();
+    }
+
+    @Test
+    void publicOrderRejectsPartialCoordinatePairEvenWhenCalledBelowHttpBoundary() {
+        PublicOrderService.CreateOrderCommand command = new PublicOrderService.CreateOrderCommand(
+                OrderSourceType.PUBLIC_H5, null, "扬州东站", new BigDecimal("32.391"), null,
+                "瘦西湖", null, null, 2, Instant.now().plusSeconds(3600), "13800000000", null);
+
+        assertThatThrownBy(() -> service.create(command))
+                .isInstanceOfSatisfying(BusinessException.class, exception -> {
+                    assertThat(exception.getCode()).isEqualTo("COORDINATES_INCOMPLETE");
+                    assertThat(exception.getStatus()).isEqualTo(org.springframework.http.HttpStatus.BAD_REQUEST);
+                });
+        assertThat(orderRepository.count()).isZero();
     }
 
     @Test

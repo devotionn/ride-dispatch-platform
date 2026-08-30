@@ -39,7 +39,6 @@
 - Modify: `docs/06-testing/2026-08-24-prd-local-deep-test-report.md`
 
 **Steps:**
-1. Run `./gradlew.bat :app:testDebugUnitTest :app:assembleDebug -PdriverApiBaseUrl=http://10.0.2.2:8081` with JDK 21.
+1. 历史步骤曾使用 JDK 21；当前 Android compile/jvmTarget 与 Gate 基线为 Temurin JDK 17。运行 `./gradlew.bat :app:testDebugUnitTest :app:assembleDebug -PdriverApiBaseUrl=http://10.0.2.2:8081` 时请使用 JDK 17。
 2. Install the APK on `emulator-5554` and verify the driver home still renders and the notification permission request does not crash startup.
 3. Record that background notification delivery is locally implemented but manufacturer-specific battery restrictions and real-device push delivery remain external gates.
-

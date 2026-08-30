@@ -3,9 +3,12 @@ package com.funccrypto.ridedispatch.order.api;
 import com.funccrypto.ridedispatch.order.OrderStatus;
 import com.funccrypto.ridedispatch.order.PublicOrderService;
 import com.funccrypto.ridedispatch.payment.PaymentService;
+import com.funccrypto.ridedispatch.place.PlaceCatalogService;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,15 +22,19 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/public/orders")
 public class PublicOrderController {
 
+    private static final Logger log = LoggerFactory.getLogger(PublicOrderController.class);
+
     private static final String PASSENGER_TOKEN_HEADER = "X-Passenger-Token";
     private static final String IDEMPOTENCY_HEADER = "Idempotency-Key";
 
     private final PublicOrderService service;
     private final PaymentService paymentService;
+    private final PlaceCatalogService placeCatalogService;
 
-    public PublicOrderController(PublicOrderService service, PaymentService paymentService) {
+    public PublicOrderController(PublicOrderService service, PaymentService paymentService, PlaceCatalogService placeCatalogService) {
         this.service = service;
         this.paymentService = paymentService;
+        this.placeCatalogService = placeCatalogService;
     }
 
     @PostMapping
@@ -48,7 +55,28 @@ public class PublicOrderController {
                 request.departureAt().toInstant(),
                 request.mobile(),
                 request.remark()), idempotencyKey);
+        // Catalog statistics are intentionally best-effort and outside the order transaction.
+        // Do not count an idempotent replay as a second place selection.
+        if (result.newlyCreated()) {
+            recordPlaceUse(
+                    request.pickup().placeId(), request.pickup().address(),
+                    request.pickup().latitude(), request.pickup().longitude());
+            recordPlaceUse(
+                    request.destination().placeId(), request.destination().address(),
+                    request.destination().latitude(), request.destination().longitude());
+        }
         return new CreateOrderResponse(result.orderNo(), result.status(), result.passengerAccessToken());
+    }
+
+    private void recordPlaceUse(Long placeId, String addressText, java.math.BigDecimal latitude, java.math.BigDecimal longitude) {
+        try {
+            placeCatalogService.recordUseIfEnabled(
+                    placeId, addressText, latitude, longitude);
+        } catch (RuntimeException exception) {
+            // Analytics must never turn a committed order into a failed response,
+            // including failures raised while the REQUIRES_NEW transaction commits.
+            log.warn("Unable to record place catalog usage", exception);
+        }
     }
 
     @GetMapping("/{orderNo}")

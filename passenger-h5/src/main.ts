@@ -2,7 +2,6 @@ import { createApp } from 'vue'
 import { Button, CellGroup, Field, Form, Stepper } from 'vant'
 import 'vant/lib/index.css'
 import './styles.css'
-import './map.css'
 
 import App from './App.vue'
 import router from './router'

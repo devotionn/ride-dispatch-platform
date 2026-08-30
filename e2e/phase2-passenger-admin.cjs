@@ -28,7 +28,8 @@ async function main() {
   observeApiResponses(adminPage, 'admin')
 
   await refreshTestDriverLocations()
-  await runPublicOrderGate()
+  await runTextOnlyPublicOrderGate()
+  await runLocatedPublicOrderGate()
   await runDirectedOrderGate()
   console.log(`Phase 2 browser gate passed${lastOrderNo ? `; last order ${lastOrderNo}` : ''}`)
 }
@@ -85,10 +86,10 @@ function observeApiResponses(page, app) {
   })
 }
 
-async function runPublicOrderGate() {
+async function runTextOnlyPublicOrderGate() {
   await passengerPage.goto(`${passengerUrl}/ride`, { waitUntil: 'domcontentloaded' })
-  await fillManualPoint('上车点', '扬州东站', '119.5080000', '32.3910000')
-  await fillManualPoint('目的地', '瘦西湖', '119.4140000', '32.4200000')
+  await fillManualTextPoint('上车点', '扬州东站')
+  await fillManualTextPoint('目的地', '瘦西湖')
   await passengerPage.getByPlaceholder('请输入 11 位手机号').fill('13800000000')
   await passengerPage.getByRole('button', { name: '提交预约' }).click()
   await passengerPage.waitForURL('**/order/**', { timeout: 15000 })
@@ -110,12 +111,20 @@ async function runPublicOrderGate() {
   await adminPage.getByText(lastOrderNo).first().waitFor({ timeout: 15000 })
 
   await adminPage.locator('.orders-table .el-table__row').filter({ hasText: lastOrderNo }).dblclick()
-  await adminPage.getByText('选择附近司机派单').waitFor({ timeout: 10000 })
+  const dispatchPanel = adminPage.getByTestId('dispatch-panel')
+  await dispatchPanel.waitFor({ timeout: 10000 })
   const createdDetail = await getAdminOrderDetail(lastOrderNo)
   assert.equal(createdDetail.order.sourceType, 'PUBLIC_H5', '公共入口订单来源必须为 PUBLIC_H5')
   assert.equal(createdDetail.order.status, 'PENDING_DISPATCH', '公共入口订单初始状态必须为 PENDING_DISPATCH')
-  const nearbyRows = adminPage.locator('.nearby-table .el-table__row')
-  if (await nearbyRows.count() < 1) throw new Error('Phase 2 Gate 未找到附近司机')
+  assert.equal(createdDetail.order.pickupLatitude, null, '手工上车点必须不包含纬度')
+  assert.equal(createdDetail.order.pickupLongitude, null, '手工上车点必须不包含经度')
+  assert.equal(createdDetail.order.destinationLatitude, null, '手工目的地必须不包含纬度')
+  assert.equal(createdDetail.order.destinationLongitude, null, '手工目的地必须不包含经度')
+  await dispatchPanel.getByText('无定位坐标 · 人工选择司机派单').waitFor({ timeout: 10000 })
+  const nearbyRows = adminPage.getByTestId('dispatch-candidates').locator('.el-table__row')
+  if (await nearbyRows.count() < 1) throw new Error('无坐标订单未找到符合资格的人工派单司机')
+  const candidateText = await adminPage.getByTestId('dispatch-candidates').innerText()
+  assert.ok(!/null km|NaN km|undefined km/.test(candidateText), '无坐标候选司机不得显示无效距离')
 
   await nearbyRows.first().getByRole('button', { name: '派给他' }).click()
   await adminPage.getByRole('button', { name: '确认派单' }).click()
@@ -128,11 +137,35 @@ async function runPublicOrderGate() {
   assert.equal(waitingAttempt.dispatchType, 'MANUAL', '公共订单后台派单类型必须为 MANUAL')
 }
 
+async function runLocatedPublicOrderGate() {
+  await passengerPage.context().grantPermissions(['geolocation'], { origin: passengerUrl })
+  await passengerPage.context().setGeolocation({ latitude: 32.391, longitude: 119.508, accuracy: 10 })
+  await passengerPage.goto(`${passengerUrl}/ride`, { waitUntil: 'domcontentloaded' })
+  await fillBrowserLocationPoint('上车点', '扬州东站')
+  await fillManualTextPoint('目的地', '瘦西湖')
+  await passengerPage.getByPlaceholder('请输入 11 位手机号').fill('13800000002')
+  await passengerPage.getByRole('button', { name: '提交预约' }).click()
+  await passengerPage.waitForURL('**/order/**', { timeout: 15000 })
+  lastOrderNo = new URL(passengerPage.url()).pathname.split('/').pop()
+  assert.ok(lastOrderNo, '无法从有坐标订单页读取订单号')
+  await adminPage.goto(`${adminUrl}/orders`, { waitUntil: 'domcontentloaded' })
+  await adminPage.getByText(lastOrderNo).first().waitFor({ timeout: 15000 })
+  await adminPage.locator('.orders-table .el-table__row').filter({ hasText: lastOrderNo }).dblclick()
+  const createdDetail = await getAdminOrderDetail(lastOrderNo)
+  assert.equal(createdDetail.order.sourceType, 'PUBLIC_H5', '有坐标订单来源必须为 PUBLIC_H5')
+  assert.notEqual(createdDetail.order.pickupLatitude, null, '浏览器定位必须保存上车纬度')
+  assert.notEqual(createdDetail.order.pickupLongitude, null, '浏览器定位必须保存上车经度')
+  const candidates = adminPage.getByTestId('dispatch-candidates')
+  await candidates.waitFor({ timeout: 10000 })
+  const candidateText = await candidates.innerText()
+  assert.match(candidateText, /km/, '有坐标订单必须显示距离候选司机')
+}
+
 async function runDirectedOrderGate() {
   await passengerPage.goto(`${passengerUrl}/ride/d/QRD101`, { waitUntil: 'domcontentloaded' })
   await passengerPage.getByRole('heading', { name: '李师傅' }).waitFor({ timeout: 10000 })
-  await fillManualPoint('上车点', '扬州东站', '119.5080000', '32.3910000')
-  await fillManualPoint('目的地', '瘦西湖', '119.4140000', '32.4200000')
+  await fillManualTextPoint('上车点', '扬州东站')
+  await fillManualTextPoint('目的地', '瘦西湖')
   await passengerPage.getByPlaceholder('请输入 11 位手机号').fill('13800000001')
   await passengerPage.getByRole('button', { name: '提交给该司机确认' }).click()
   await passengerPage.waitForURL('**/order/**', { timeout: 15000 })
@@ -184,14 +217,22 @@ async function waitForAdminOrder(orderNo, predicate) {
   throw new Error(`等待订单 ${orderNo} 达到目标状态超时`)
 }
 
-async function fillManualPoint(targetText, address, longitude, latitude) {
+async function fillManualTextPoint(targetText, address) {
   await passengerPage.locator('button.route-select-row', { hasText: targetText }).click()
   const dialog = passengerPage.getByRole('dialog')
   await dialog.waitFor()
-  await dialog.locator('input[placeholder="例如：扬州东站"]').fill(address)
-  await dialog.locator('input[placeholder="119.5080000"]').fill(longitude)
-  await dialog.locator('input[placeholder="32.3910000"]').fill(latitude)
-  await dialog.getByRole('button', { name: '确认手工地点' }).click()
+  await dialog.getByTestId('manual-place-address').fill(address)
+  await dialog.getByTestId('confirm-manual-place').click()
+  await dialog.waitFor({ state: 'hidden' })
+}
+
+async function fillBrowserLocationPoint(targetText, address) {
+  await passengerPage.locator('button.route-select-row', { hasText: targetText }).click()
+  const dialog = passengerPage.getByRole('dialog')
+  await dialog.getByRole('button', { name: '使用我的当前位置' }).click()
+  await dialog.getByText('当前位置已获取').waitFor({ timeout: 10000 })
+  await dialog.locator('.current-location-card input').fill(address)
+  await dialog.getByRole('button', { name: '使用此位置' }).click()
   await dialog.waitFor({ state: 'hidden' })
 }
 

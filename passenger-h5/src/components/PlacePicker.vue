@@ -189,9 +189,9 @@ function confirmManual(): void {
         <div class="manual-place-block">
           <label>
             <span>{{ allowCurrentLocation ? '或手工填写上车地点' : '手工填写目的地' }}</span>
-            <input v-model="manualAddress" maxlength="255" placeholder="例如：扬州东站 / XX小区北门" />
+            <input v-model="manualAddress" data-testid="manual-place-address" maxlength="255" placeholder="例如：扬州东站 / XX小区北门" />
           </label>
-          <button type="button" class="secondary-action" @click="confirmManual">确认文字地点</button>
+          <button type="button" class="secondary-action" data-testid="confirm-manual-place" @click="confirmManual">确认文字地点</button>
           <small>手工地点无需经纬度，仍可正常提交；上车点无坐标时由后台人工派单。</small>
         </div>
       </section>

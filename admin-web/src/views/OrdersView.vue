@@ -535,7 +535,7 @@ function messageOf(error: unknown): string {
           <div><span class="point-b">B</span><section><small>目的地</small><strong>{{ detail.order.destinationAddress }}</strong><em>{{ detail.order.destinationLatitude != null && detail.order.destinationLongitude != null ? `${detail.order.destinationLongitude}, ${detail.order.destinationLatitude}` : '无定位坐标' }}</em></section></div>
         </div>
 
-        <section v-if="canDispatch || canReassign || canForceOperate" class="drawer-section dispatch-section">
+        <section v-if="canDispatch || canReassign || canForceOperate" class="drawer-section dispatch-section" data-testid="dispatch-panel">
           <div class="drawer-section-heading">
             <div><span>人工调度</span><h3>{{ canDispatch ? (hasPickupCoordinates ? '选择附近司机派单' : '无定位坐标 · 人工选择司机派单') : canForceOperate ? '选择附近司机强制改派' : '等待司机确认，可直接改派' }}</h3></div>
             <el-button size="small" :loading="nearbyLoading" @click="loadNearby(detail.order.orderNo)">刷新候选司机</el-button>
@@ -543,7 +543,7 @@ function messageOf(error: unknown): string {
           <el-alert v-if="!hasPickupCoordinates" type="info" :closable="false" show-icon title="该订单没有定位坐标，无法计算附近司机；以下为符合接单条件的司机，请人工选择派单。" />
           <el-alert v-if="forcedWaiting" type="warning" :closable="false" show-icon title="强制改派确认中：原司机仍为责任司机，新司机接受前不会交接。" />
           <el-alert v-else-if="canReassign && currentWaitingDriverId" type="warning" :closable="false" show-icon :title="`当前待确认司机 ID：${currentWaitingDriverId}。改派后原派单立即失效。`" />
-          <el-table v-loading="nearbyLoading" :data="nearbyDrivers" :empty-text="hasPickupCoordinates ? '10km 内暂无符合条件司机' : '暂无符合条件司机'" class="nearby-table">
+          <el-table v-loading="nearbyLoading" :data="nearbyDrivers" :empty-text="hasPickupCoordinates ? '10km 内暂无符合条件司机' : '暂无符合条件司机'" class="nearby-table" data-testid="dispatch-candidates">
             <el-table-column label="司机" min-width="150"><template #default="scope"><div class="stack-cell"><strong>{{ scope.row.driverName }}</strong><span>{{ scope.row.driverNo }}</span></div></template></el-table-column>
             <el-table-column label="可接人数" width="100"><template #default="scope">{{ scope.row.availablePassengers }} 人</template></el-table-column>
             <el-table-column label="直线距离" width="110"><template #default="scope">{{ scope.row.straightLineDistanceKm == null ? '—' : `${scope.row.straightLineDistanceKm.toFixed(2)} km` }}</template></el-table-column>

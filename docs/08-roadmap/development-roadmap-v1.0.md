@@ -95,7 +95,7 @@
 - 公共 H5 纯文字地址下单，Admin 显示无坐标提示并完成人工派单；
 - 公共 H5 浏览器原生定位上车点 + 手工目的地，Admin 验证坐标和距离；
 - 司机定向入口 `/ride/d/QRD101` 创建订单后保持 `PENDING_DRIVER_CONFIRM`；
-- Java 21 后端 `mvn clean verify`：54 个测试通过；Passenger H5、Admin Web 构建通过；
+- Java 21 后端 `mvn clean verify`：55 个测试通过；Passenger H5、Admin Web 构建通过；
 - 当前实现不依赖商业地图 SDK、地图 Key 或地图服务代理。
 
 ## Phase 3 — Android Driver

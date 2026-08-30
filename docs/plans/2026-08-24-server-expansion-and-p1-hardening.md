@@ -86,6 +86,8 @@
 
 ## 执行记录（2026-08-24）
 
+> 历史环境记录：本节的 Android JDK21、Maven 测试数量和 Java17 部署 target 仅代表 2026-08-24 当日，不代表当前 Android Gate。当前 Android compile/jvmTarget/Gate 使用 Temurin JDK17，当前后端 Gate 使用 Java 21；最新基线以当前 CI 和验收策略为准。
+
 - [x] 服务器冒烟回归：`smoke:deployed` 7/7。
 - [x] 服务器核心链路：`core:deployed` 7/7；生产 Mock Provider 边界明确为 404，线下收款路径通过。
 - [x] 服务器 SSE 业务事件：`sse:deployed` 3/3。

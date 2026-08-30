@@ -809,10 +809,15 @@ private fun ActiveOrderCard(
 }
 
 private fun openExternalNavigation(context: Context, address: String, latitude: Double?, longitude: Double?) {
+    val normalizedAddress = normalizeNavigationAddress(address)
+    if (normalizedAddress == null) {
+        Toast.makeText(context, "导航地址为空，无法导航。", Toast.LENGTH_LONG).show()
+        return
+    }
     val query = if (latitude != null && longitude != null) {
-        "$latitude,$longitude(${Uri.encode(address)})"
+        "$latitude,$longitude(${Uri.encode(normalizedAddress)})"
     } else {
-        Uri.encode(address)
+        Uri.encode(normalizedAddress)
     }
     val uri = if (latitude != null && longitude != null) "geo:$latitude,$longitude?q=$query" else "geo:0,0?q=$query"
     val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
@@ -821,7 +826,7 @@ private fun openExternalNavigation(context: Context, address: String, latitude: 
         return
     }
     context.getSystemService(android.content.ClipboardManager::class.java)
-        ?.setPrimaryClip(ClipData.newPlainText("导航地址", address))
+        ?.setPrimaryClip(ClipData.newPlainText("导航地址", normalizedAddress))
     Toast.makeText(context, "未检测到可用的地图导航应用，地址已复制，可手动导航。", Toast.LENGTH_LONG).show()
 }
 

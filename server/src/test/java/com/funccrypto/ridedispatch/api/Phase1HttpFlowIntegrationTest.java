@@ -29,6 +29,7 @@ import com.funccrypto.ridedispatch.order.TripStage;
 import com.funccrypto.ridedispatch.payment.PaymentAttemptRepository;
 import com.funccrypto.ridedispatch.payment.PaymentExceptionRepository;
 import com.funccrypto.ridedispatch.payment.PaymentRepository;
+import com.funccrypto.ridedispatch.place.PlaceCatalogRepository;
 import com.funccrypto.ridedispatch.settlement.DriverAccountRepository;
 import com.funccrypto.ridedispatch.settlement.DriverLedgerRepository;
 import com.funccrypto.ridedispatch.settlement.WithdrawalRepository;
@@ -66,6 +67,7 @@ class Phase1HttpFlowIntegrationTest {
     @Autowired WithdrawalRepository withdrawalRepository;
     @Autowired DriverAccountRepository driverAccountRepository;
     @Autowired PlatformBrandRepository brandRepository;
+    @Autowired PlaceCatalogRepository placeCatalogRepository;
     @Autowired PasswordEncoder passwordEncoder;
     @Autowired Clock clock;
 
@@ -239,6 +241,27 @@ class Phase1HttpFlowIntegrationTest {
     }
 
     @Test
+    void adminPlaceCoordinateValidationReturnsBadRequest() throws Exception {
+        adminRepository.save(new AdminUserEntity(
+                "place-admin", passwordEncoder.encode("admin-password"), "地点管理员", AdminRole.ADMIN, clock.instant()));
+        String adminToken = login("/api/v1/auth/admin/login", "place-admin", "admin-password");
+
+        mockMvc.perform(post("/api/v1/admin/places")
+                        .header("Authorization", bearer(adminToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "name":"不完整地点",
+                                  "addressText":"测试地址",
+                                  "latitude":32.4
+                                }
+                                """))
+                .andExpect(status().isBadRequest())
+                .andExpect(result -> assertThat(result.getResponse().getContentAsString())
+                        .contains("PLACE_COORDINATES_INCOMPLETE"));
+    }
+
+    @Test
     void adminCanCancelPendingOrderAndMarkAnotherOrderException() throws Exception {
         adminRepository.save(new AdminUserEntity(
                 "order-admin", passwordEncoder.encode("admin-password"), "订单管理员", AdminRole.ADMIN, clock.instant()));
@@ -358,5 +381,6 @@ class Phase1HttpFlowIntegrationTest {
         driverRepository.deleteAll();
         adminRepository.deleteAll();
         brandRepository.deleteAll();
+        placeCatalogRepository.deleteAll();
     }
 }

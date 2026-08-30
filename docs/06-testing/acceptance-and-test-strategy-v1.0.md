@@ -8,7 +8,7 @@
 - 浏览器 Gate PASS：纯文字地址下单 → Admin 无坐标人工派单；
 - 浏览器 Gate PASS：浏览器原生定位上车点 + 手工目的地 → Admin 坐标/距离派单；
 - 定向入口 Gate PASS：`/ride/d/QRD101` 锁定司机并创建 `PENDING_DRIVER_CONFIRM` 订单；
-- 后端 Java 21 `mvn clean verify` PASS：54 个测试、0 失败；Passenger H5、Admin Web 构建 PASS；
+- 后端 Java 21 `mvn clean verify` PASS：55 个测试、0 失败；Passenger H5、Admin Web 构建 PASS；
 - 当前链路使用原生浏览器定位、Place Catalog 和手工地址，不需要商业地图 SDK 或地图 Key；
 - 已自动化覆盖 C-001、C-002、C-003，以及 Passenger Token 越权和重复幂等键冲突；
 - P-H5-006 支付二维码不属于 Phase 2，继续留到 Phase 4；C-004 提现并发测试留到 Payment/Ledger/Withdrawal 实现后；

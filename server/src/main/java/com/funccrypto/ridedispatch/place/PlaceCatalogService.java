@@ -6,6 +6,7 @@ import java.util.List;
 
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -76,24 +77,25 @@ public class PlaceCatalogService {
 
     private void validate(Command command) {
         if (command.name() == null || command.name().isBlank()) {
-            throw new BusinessException("PLACE_NAME_REQUIRED", "地点名称不能为空");
+            throw new BusinessException("PLACE_NAME_REQUIRED", "地点名称不能为空", HttpStatus.BAD_REQUEST);
         }
         if (command.addressText() == null || command.addressText().isBlank()) {
-            throw new BusinessException("PLACE_ADDRESS_REQUIRED", "地点地址不能为空");
+            throw new BusinessException("PLACE_ADDRESS_REQUIRED", "地点地址不能为空", HttpStatus.BAD_REQUEST);
         }
         boolean oneCoordinateMissing = (command.latitude() == null) != (command.longitude() == null);
         if (oneCoordinateMissing) {
-            throw new BusinessException("PLACE_COORDINATES_INCOMPLETE", "经纬度必须同时填写或同时留空");
+            throw new BusinessException(
+                    "PLACE_COORDINATES_INCOMPLETE", "经纬度必须同时填写或同时留空", HttpStatus.BAD_REQUEST);
         }
         if (command.latitude() != null
                 && (command.latitude().compareTo(BigDecimal.valueOf(-90)) < 0
                 || command.latitude().compareTo(BigDecimal.valueOf(90)) > 0)) {
-            throw new BusinessException("PLACE_LATITUDE_INVALID", "纬度必须在 -90 到 90 之间");
+            throw new BusinessException("PLACE_LATITUDE_INVALID", "纬度必须在 -90 到 90 之间", HttpStatus.BAD_REQUEST);
         }
         if (command.longitude() != null
                 && (command.longitude().compareTo(BigDecimal.valueOf(-180)) < 0
                 || command.longitude().compareTo(BigDecimal.valueOf(180)) > 0)) {
-            throw new BusinessException("PLACE_LONGITUDE_INVALID", "经度必须在 -180 到 180 之间");
+            throw new BusinessException("PLACE_LONGITUDE_INVALID", "经度必须在 -180 到 180 之间", HttpStatus.BAD_REQUEST);
         }
     }
 

@@ -72,7 +72,7 @@ Phase 2 浏览器 Gate（3 个场景）已通过：
 2. 公共 H5 浏览器原生定位上车点 + 手工目的地 → Admin 验证坐标和距离；
 3. 司机二维码定向下单 → 订单保持 `PENDING_DRIVER_CONFIRM`。
 
-该链路只使用浏览器原生定位、Place Catalog 和手工地址，不集成商业地图 SDK 或地图 Key。后端 Java 21 `mvn clean verify` 当前为 54 个测试通过，Passenger H5 和 Admin Web 构建也已通过。
+该链路只使用浏览器原生定位、Place Catalog 和手工地址，不集成商业地图 SDK 或地图 Key。后端 Java 21 `mvn clean verify` 当前为 55 个测试通过，Passenger H5 和 Admin Web 构建也已通过。
 
 ## Admin Web
 

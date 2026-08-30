@@ -10,6 +10,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.HttpStatus;
 import org.springframework.test.context.ActiveProfiles;
 
 @SpringBootTest
@@ -41,7 +42,9 @@ class PlaceCatalogServiceIntegrationTest {
         assertThat(service.search("瘦西", 10)).isEmpty();
         assertThatThrownBy(() -> service.create(command("不完整", "测试地址", new BigDecimal("32.4"), null, null)))
                 .isInstanceOfSatisfying(BusinessException.class, error ->
-                        assertThat(error.getCode()).isEqualTo("PLACE_COORDINATES_INCOMPLETE"));
+                        assertThat(error)
+                                .extracting(BusinessException::getCode, BusinessException::getStatus)
+                                .containsExactly("PLACE_COORDINATES_INCOMPLETE", HttpStatus.BAD_REQUEST));
     }
 
     @Test

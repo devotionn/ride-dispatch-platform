@@ -9,6 +9,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 
 @Entity
 @Table(name = "place_catalog")
@@ -30,6 +31,7 @@ public class PlaceCatalogEntity {
     @Column(nullable = false, length = 30) private String source;
     @Column(name = "created_at", nullable = false) private Instant createdAt;
     @Column(name = "updated_at", nullable = false) private Instant updatedAt;
+    @Version @Column(nullable = false) private long version;
 
     protected PlaceCatalogEntity() {}
 
@@ -65,12 +67,6 @@ public class PlaceCatalogEntity {
 
     public void setEnabled(boolean enabled, Instant now) {
         this.enabled = enabled;
-        this.updatedAt = now;
-    }
-
-    public void markUsed(Instant now) {
-        this.usageCount++;
-        this.lastUsedAt = now;
         this.updatedAt = now;
     }
 

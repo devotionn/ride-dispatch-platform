@@ -15,12 +15,12 @@ Phase 3 Android 最小垂直切片，当前覆盖：
 
 ## 本地运行
 
-需要 Android Studio、Android SDK 35 和 JDK 17。仓库已包含锁定到 Gradle 8.9 并校验发行包摘要的 Gradle Wrapper；已验证 `testDebugUnitTest` 和 `assembleDebug`。Pixel 7 Android 15 Emulator 已可用软件渲染启动并完成 APK 冷启动验证；真实手机仍未验证。
+需要 Android Studio、Android SDK 35 和 JDK 17。项目 Android 编译选项和 Kotlin `jvmTarget` 固定为 Java 17；Android Gate 使用 Temurin JDK 17。仓库已包含锁定到 Gradle 8.9 并校验发行包摘要的 Gradle Wrapper；已验证 `testDebugUnitTest`、`assembleDebug` 和 `lintDebug`。Pixel 7 Android 15 Emulator 已可用软件渲染启动并完成 APK 冷启动验证；真实手机仍未验证。
 
-Windows 当前已用 JDK 21 验证通过。JDK 25 暂不兼容项目使用的 Kotlin/Gradle 工具链（会在脚本初始化阶段报 `IllegalArgumentException: 25.0.4`），构建前请在当前 PowerShell 会话指定 JDK 17 或 21，并同时设置 Android SDK：
+后端 Java 21 与 Android Java 17 是两个独立基线；Windows 构建前请在当前 PowerShell 会话指定 Temurin JDK 17，并同时设置 Android SDK。JDK 25 暂不兼容项目使用的 Kotlin/Gradle 工具链（会在脚本初始化阶段报 `IllegalArgumentException: 25.0.4`）：
 
 ```powershell
-$env:JAVA_HOME = 'C:\path\to\jdk-21'
+$env:JAVA_HOME = 'C:\path\to\temurin-17'
 $env:ANDROID_HOME = 'D:\dev_tool\Android\Sdk'
 $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 ```

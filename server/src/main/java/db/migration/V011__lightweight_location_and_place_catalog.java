@@ -1,6 +1,8 @@
 package db.migration;
 
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
@@ -17,18 +19,18 @@ public class V011__lightweight_location_and_place_catalog extends BaseJavaMigrat
     public void migrate(Context context) throws Exception {
         Connection connection = context.getConnection();
         boolean h2 = connection.getMetaData().getDatabaseProductName().equalsIgnoreCase("H2");
-        if (h2) {
-            execute(connection, "ALTER TABLE ride_order ALTER COLUMN pickup_latitude DROP NOT NULL");
-            execute(connection, "ALTER TABLE ride_order ALTER COLUMN pickup_longitude DROP NOT NULL");
-            execute(connection, "ALTER TABLE ride_order ALTER COLUMN destination_latitude DROP NOT NULL");
-            execute(connection, "ALTER TABLE ride_order ALTER COLUMN destination_longitude DROP NOT NULL");
-        } else {
-            execute(connection, "ALTER TABLE ride_order MODIFY pickup_latitude DECIMAL(10,7) NULL");
-            execute(connection, "ALTER TABLE ride_order MODIFY pickup_longitude DECIMAL(10,7) NULL");
-            execute(connection, "ALTER TABLE ride_order MODIFY destination_latitude DECIMAL(10,7) NULL");
-            execute(connection, "ALTER TABLE ride_order MODIFY destination_longitude DECIMAL(10,7) NULL");
+        String[] coordinateColumns = {
+                "pickup_latitude", "pickup_longitude", "destination_latitude", "destination_longitude"};
+        for (String column : coordinateColumns) {
+            if (!columnAllowsNull(connection, "ride_order", column)) {
+                String sql = h2
+                        ? "ALTER TABLE ride_order ALTER COLUMN " + column + " DROP NOT NULL"
+                        : "ALTER TABLE ride_order MODIFY " + column + " DECIMAL(10,7) NULL";
+                execute(connection, sql);
+            }
         }
-        execute(connection, """
+        if (!tableExists(connection, "place_catalog")) {
+            execute(connection, """
                 CREATE TABLE place_catalog (
                     id BIGINT PRIMARY KEY AUTO_INCREMENT,
                     name VARCHAR(120) NOT NULL,
@@ -46,11 +48,36 @@ public class V011__lightweight_location_and_place_catalog extends BaseJavaMigrat
                     source VARCHAR(30) NOT NULL DEFAULT 'ADMIN',
                     created_at TIMESTAMP(6) NOT NULL,
                     updated_at TIMESTAMP(6) NOT NULL,
+                    version BIGINT NOT NULL DEFAULT 0,
                     INDEX idx_place_catalog_name (name),
                     INDEX idx_place_catalog_enabled_usage (enabled, usage_count),
                     INDEX idx_place_catalog_city_district (city, district)
                 )
                 """);
+        }
+    }
+
+    private boolean tableExists(Connection connection, String tableName) throws SQLException {
+        DatabaseMetaData metadata = connection.getMetaData();
+        try (ResultSet tables = metadata.getTables(null, null, null, new String[] {"TABLE"})) {
+            while (tables.next()) {
+                if (tableName.equalsIgnoreCase(tables.getString("TABLE_NAME"))) return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean columnAllowsNull(Connection connection, String tableName, String columnName) throws SQLException {
+        DatabaseMetaData metadata = connection.getMetaData();
+        try (ResultSet columns = metadata.getColumns(null, null, null, null)) {
+            while (columns.next()) {
+                if (tableName.equalsIgnoreCase(columns.getString("TABLE_NAME"))
+                        && columnName.equalsIgnoreCase(columns.getString("COLUMN_NAME"))) {
+                    return columns.getInt("NULLABLE") != DatabaseMetaData.columnNoNulls;
+                }
+            }
+        }
+        throw new SQLException("Missing expected column " + tableName + "." + columnName);
     }
 
     private void execute(Connection connection, String sql) throws SQLException {

@@ -8,6 +8,7 @@ import com.funccrypto.ridedispatch.place.PlaceCatalogEntity;
 import com.funccrypto.ridedispatch.place.PlaceCatalogService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -57,7 +58,7 @@ public class PlaceCatalogController {
 
     @PatchMapping("/api/v1/admin/places/{id}/enabled")
     @PreAuthorize("hasAnyRole('ADMIN','DISPATCHER')")
-    PlaceView setEnabled(@PathVariable Long id, @RequestBody EnabledRequest request) {
+    PlaceView setEnabled(@PathVariable Long id, @Valid @RequestBody EnabledRequest request) {
         return PlaceView.from(service.setEnabled(id, request.enabled()));
     }
 
@@ -75,7 +76,7 @@ public class PlaceCatalogController {
         }
     }
 
-    public record EnabledRequest(boolean enabled) {}
+    public record EnabledRequest(@NotNull Boolean enabled) {}
 
     public record PlaceView(
             Long id,

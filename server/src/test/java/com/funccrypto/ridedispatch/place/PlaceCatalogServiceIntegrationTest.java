@@ -44,6 +44,20 @@ class PlaceCatalogServiceIntegrationTest {
                         assertThat(error.getCode()).isEqualTo("PLACE_COORDINATES_INCOMPLETE"));
     }
 
+    @Test
+    void usageCounterRequiresMatchingSelectionAndIsUpdatedAtomically() {
+        PlaceCatalogEntity place = service.create(command(
+                "扬州东站", "江苏省扬州市广陵区烟花三月路",
+                new BigDecimal("32.3910000"), new BigDecimal("119.5080000"), null));
+
+        service.recordUseIfEnabled(place.getId(), place.getAddressText(), place.getLatitude(), place.getLongitude());
+        service.recordUseIfEnabled(place.getId(), "另一处地址", place.getLatitude(), place.getLongitude());
+        service.recordUseIfEnabled(place.getId(), place.getAddressText(), null, null);
+
+        PlaceCatalogEntity refreshed = repository.findById(place.getId()).orElseThrow();
+        assertThat(refreshed.getUsageCount()).isEqualTo(1);
+    }
+
     private PlaceCatalogService.Command command(
             String name, String address, BigDecimal latitude, BigDecimal longitude, String aliases) {
         return new PlaceCatalogService.Command(name, address, latitude, longitude, "扬州", "广陵", "交通", aliases);

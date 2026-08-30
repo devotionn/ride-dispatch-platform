@@ -76,7 +76,7 @@ const canReassign = computed(() => detail.value?.order.status === 'PENDING_DRIVE
 const canForceOperate = computed(() => ['ACCEPTED', 'IN_SERVICE'].includes(detail.value?.order.status ?? ''))
 const canCancelPending = computed(() => ['PENDING_DISPATCH', 'PENDING_DRIVER_CONFIRM'].includes(detail.value?.order.status ?? ''))
 const canMarkException = computed(() => !['COMPLETED', 'CANCELLED', 'EXCEPTION'].includes(detail.value?.order.status ?? ''))
-const forcedWaiting = computed(() => canReassign && currentWaitingDriverId.value !== null && detail.value?.order.currentDriverId !== null)
+const forcedWaiting = computed(() => canReassign.value && currentWaitingDriverId.value !== null && detail.value?.order.currentDriverId !== null)
 const currentWaitingDriverId = computed(() => {
   const attempts = detail.value?.dispatchAttempts ?? []
   return [...attempts].reverse().find((item) => item.status === 'WAITING')?.targetDriverId ?? null
@@ -320,12 +320,12 @@ function resetCreateForm(): void {
   createForm.remark = ''
 }
 
-function coordinatePairValid(latitude: number | null, longitude: number | null): boolean {
-  return (latitude === null) === (longitude === null)
+function coordinatePairValid(latitude: number | null | undefined, longitude: number | null | undefined): boolean {
+  return (latitude == null) === (longitude == null)
 }
 
-function coordinateValidOrEmpty(value: number | null, min: number, max: number): boolean {
-  return value === null || (Number.isFinite(value) && value >= min && value <= max)
+function coordinateValidOrEmpty(value: number | null | undefined, min: number, max: number): boolean {
+  return value == null || (Number.isFinite(value) && value >= min && value <= max)
 }
 
 function statusLabel(status: OrderStatus): string {
@@ -610,7 +610,7 @@ function messageOf(error: unknown): string {
     </el-drawer>
 
     <el-dialog v-model="createOpen" title="后台代客创建订单" width="min(720px, 92vw)" destroy-on-close @closed="resetCreateForm">
-      <el-alert type="info" :closable="false" title="首版后台建单使用地址 + 经纬度。调度员地图选点将在同一地图 Provider 上继续接入。" />
+      <el-alert type="info" :closable="false" title="后台建单可从常用地点目录选择或手工输入；经纬度可同时留空。无坐标上车点会进入符合资格司机的人工派单。" />
       <el-form label-position="top" class="create-order-form">
         <div class="form-grid two">
           <el-form-item label="上车点地址"><el-input v-model="createForm.pickupAddress" placeholder="请输入上车点" /></el-form-item>

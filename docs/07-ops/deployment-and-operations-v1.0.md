@@ -76,7 +76,7 @@ Web/Android 可按开发体验独立启动。
 - JWT/Token 签名密钥；
 - 微信/支付宝私钥；
 - Push 密钥；
-- 地图服务 Secret；
+- （当前无商业地图依赖）不配置地图服务 Secret；
 - 对象存储 Secret。
 
 生产使用环境变量、Secret 管理或服务器受限配置文件。
@@ -100,6 +100,8 @@ Web/Android 可按开发体验独立启动。
 支付、账本、提现数据的备份优先级最高。
 
 ### 6.3 迁移
+
+当前分支的 V011 是为 H2/MySQL 方言兼容编写的 Java migration，并对已完成列变更和地点表创建做防重复检查。该分支尚未作为正式版本发布；若环境曾执行过历史提交 `20beaad` 的 SQL V011，升级前必须先核对 `flyway_schema_history` 与实际 schema，并由发布负责人执行一次受控 `flyway repair`，不得直接覆盖或盲目 repair。
 
 部署顺序必须考虑数据库向前兼容：
 

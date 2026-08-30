@@ -119,6 +119,14 @@ class NearbyDriverServiceIntegrationTest {
         });
     }
 
+    @Test
+    void haversineDistanceRemainsFiniteAtAntipodalBoundary() {
+        double distance = NearbyDriverService.haversineKm(
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("180"));
+
+        assertThat(distance).isFinite();
+    }
+
     private DriverLocationCurrentEntity location(Long driverId, String lat, String lng, Instant locatedAt) {
         return new DriverLocationCurrentEntity(
                 driverId,

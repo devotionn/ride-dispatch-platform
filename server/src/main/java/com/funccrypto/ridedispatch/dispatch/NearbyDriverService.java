@@ -112,6 +112,9 @@ public class NearbyDriverService {
         double a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2)
                 + Math.cos(phi1) * Math.cos(phi2)
                 * Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+        // Rounding at the antipodal boundary can produce a value just above
+        // one, which would otherwise turn the distance into NaN.
+        a = Math.max(0.0, Math.min(1.0, a));
         return EARTH_RADIUS_KM * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     }
 }

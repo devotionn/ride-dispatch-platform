@@ -230,7 +230,7 @@ Compose 运行 MySQL、Spring API、Passenger H5、Admin Web；统一 Docker net
 
 **Step 3: 配置 Nginx 和 HTTPS**
 
-为 Passenger H5、Admin Web、`/api`、健康检查和高德安全代理写路由；先用 staging 域名验证 DNS，再申请 HTTPS。证书续期必须有明确命令和日志。
+为 Passenger H5、Admin Web、`/api` 和健康检查写路由；（旧计划中的高德安全代理已被当前无商业地图架构移除。）先用 staging 域名验证 DNS，再申请 HTTPS。证书续期必须有明确命令和日志。
 
 **Step 4: 配置数据库迁移与种子边界**
 

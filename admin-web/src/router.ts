@@ -25,7 +25,7 @@ const router = createRouter({
         { path: 'orders', name: 'orders', component: OrdersView, meta: { title: '订单调度' } },
         { path: 'orders/create', name: 'create-order', component: CreateOrderView, meta: { title: '后台代客建单' } },
         { path: 'drivers', name: 'drivers', component: DriversView, meta: { title: '司机管理' } },
-        { path: 'places', name: 'places', component: PlacesView, meta: { title: '常用地点管理' } },
+        { path: 'places', name: 'places', component: PlacesView, meta: { title: '常用地点管理', authorities: ['ROLE_ADMIN', 'ROLE_DISPATCHER'] } },
         { path: 'brand', name: 'brand', component: BrandView, meta: { title: '平台品牌' } },
         { path: 'payments', name: 'payments', component: PaymentsView, meta: { title: '支付记录' } },
         { path: 'payment-exceptions', name: 'payment-exceptions', component: PaymentExceptionsView, meta: { title: '退款异常', authorities: ['ROLE_ADMIN', 'ROLE_FINANCE'] } },

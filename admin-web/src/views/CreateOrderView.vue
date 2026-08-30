@@ -48,9 +48,9 @@ function selectDestination(place: PlaceCatalogItem): void {
   form.destinationLongitude = place.longitude ?? null
 }
 
-function coordinatePairValid(latitude: number | null, longitude: number | null): boolean {
-  if (latitude === null && longitude === null) return true
-  if (latitude === null || longitude === null) return false
+function coordinatePairValid(latitude: number | null | undefined, longitude: number | null | undefined): boolean {
+  if (latitude == null && longitude == null) return true
+  if (latitude == null || longitude == null) return false
   return Number.isFinite(latitude) && latitude >= -90 && latitude <= 90
     && Number.isFinite(longitude) && longitude >= -180 && longitude <= 180
 }
@@ -149,7 +149,7 @@ async function submit(): Promise<void> {
               <el-form-item label="经度（选填）"><el-input-number v-model="form.pickupLongitude" :controls="false" :precision="7" /></el-form-item>
               <el-form-item label="纬度（选填）"><el-input-number v-model="form.pickupLatitude" :controls="false" :precision="7" /></el-form-item>
             </div>
-            <el-alert v-if="form.pickupAddress && form.pickupLatitude === null && form.pickupLongitude === null" type="warning" :closable="false" show-icon>
+            <el-alert v-if="form.pickupAddress && form.pickupLatitude == null && form.pickupLongitude == null" type="warning" :closable="false" show-icon>
               上车点暂无定位坐标：订单仍可创建，但无法自动计算 10km 内附近司机，需要人工选择司机。
             </el-alert>
           </el-form>
@@ -178,7 +178,7 @@ async function submit(): Promise<void> {
               <el-form-item label="经度（选填）"><el-input-number v-model="form.destinationLongitude" :controls="false" :precision="7" /></el-form-item>
               <el-form-item label="纬度（选填）"><el-input-number v-model="form.destinationLatitude" :controls="false" :precision="7" /></el-form-item>
             </div>
-            <el-alert v-if="form.destinationAddress && form.destinationLatitude === null && form.destinationLongitude === null" type="info" :closable="false" show-icon>
+            <el-alert v-if="form.destinationAddress && form.destinationLatitude == null && form.destinationLongitude == null" type="info" :closable="false" show-icon>
               目的地仅有文字地址也可正常创建和履约。
             </el-alert>
           </el-form>

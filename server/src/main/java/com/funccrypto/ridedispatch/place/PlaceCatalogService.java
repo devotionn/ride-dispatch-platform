@@ -7,6 +7,7 @@ import java.util.List;
 import com.funccrypto.ridedispatch.shared.error.BusinessException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -62,11 +63,15 @@ public class PlaceCatalogService {
         return place;
     }
 
-    @Transactional
-    public void recordUseIfEnabled(Long id) {
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void recordUseIfEnabled(Long id, String addressText, BigDecimal latitude, BigDecimal longitude) {
         if (id == null) return;
-        repository.findById(id).filter(PlaceCatalogEntity::isEnabled)
-                .ifPresent(place -> place.markUsed(clock.instant()));
+        repository.incrementUsageIfMatching(
+                id,
+                addressText == null ? "" : addressText.trim(),
+                latitude,
+                longitude,
+                clock.instant());
     }
 
     private void validate(Command command) {

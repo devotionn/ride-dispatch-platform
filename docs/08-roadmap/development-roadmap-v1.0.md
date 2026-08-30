@@ -61,7 +61,7 @@
 
 - 公共 H5
 - 司机定向 H5
-- A/B 点输入/地图能力
+- 浏览器原生定位、Place Catalog 和手工地址输入（坐标可选）
 - 乘客订单 Token
 - 接单前取消
 - 订单状态页
@@ -89,13 +89,14 @@
 → 人工派司机
 ```
 
-**Gate 状态：PASS（2026-08-23）**
+**Gate 状态：PASS（2026-08-30）**
 
 - 可重复脚本：`e2e/phase2-passenger-admin.cjs`；
-- 公共 H5 手工输入 A/B 点并创建订单；
-- Admin 登录后按订单号查看、选择附近司机并人工派单；
+- 公共 H5 纯文字地址下单，Admin 显示无坐标提示并完成人工派单；
+- 公共 H5 浏览器原生定位上车点 + 手工目的地，Admin 验证坐标和距离；
 - 司机定向入口 `/ride/d/QRD101` 创建订单后保持 `PENDING_DRIVER_CONFIRM`；
-- Java 21 后端 `mvn verify`：24 个测试通过；Passenger H5、Admin Web 构建通过。
+- Java 21 后端 `mvn clean verify`：54 个测试通过；Passenger H5、Admin Web 构建通过；
+- 当前实现不依赖商业地图 SDK、地图 Key 或地图服务代理。
 
 ## Phase 3 — Android Driver
 

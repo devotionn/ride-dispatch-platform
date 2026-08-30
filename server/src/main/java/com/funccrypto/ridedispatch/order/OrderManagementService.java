@@ -19,6 +19,7 @@ import com.funccrypto.ridedispatch.shared.error.BusinessException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -60,6 +61,8 @@ public class OrderManagementService {
 
     @Transactional
     public AdminCreateResult createByAdmin(AdminCreateCommand command, Long operatorId, String requestId) {
+        validateCoordinatePair(command.pickupLatitude(), command.pickupLongitude(), "上车点");
+        validateCoordinatePair(command.destinationLatitude(), command.destinationLongitude(), "目的地");
         Instant now = clock.instant();
         PassengerAccessTokenService.GeneratedToken token = tokenService.generate();
         RideOrderEntity order = orderRepository.save(new RideOrderEntity(
@@ -173,6 +176,20 @@ public class OrderManagementService {
     private void requireReason(String reason) {
         if (reason == null || reason.isBlank()) {
             throw new BusinessException("ADMIN_ORDER_REASON_REQUIRED", "管理操作必须填写原因");
+        }
+    }
+
+    private void validateCoordinatePair(BigDecimal latitude, BigDecimal longitude, String label) {
+        if ((latitude == null) != (longitude == null)) {
+            throw new BusinessException("COORDINATES_INCOMPLETE", label + "经纬度必须同时填写或同时留空", HttpStatus.BAD_REQUEST);
+        }
+        if (latitude != null && (latitude.compareTo(BigDecimal.valueOf(-90)) < 0
+                || latitude.compareTo(BigDecimal.valueOf(90)) > 0)) {
+            throw new BusinessException("LATITUDE_INVALID", label + "纬度必须在 -90 到 90 之间", HttpStatus.BAD_REQUEST);
+        }
+        if (longitude != null && (longitude.compareTo(BigDecimal.valueOf(-180)) < 0
+                || longitude.compareTo(BigDecimal.valueOf(180)) > 0)) {
+            throw new BusinessException("LONGITUDE_INVALID", label + "经度必须在 -180 到 180 之间", HttpStatus.BAD_REQUEST);
         }
     }
 

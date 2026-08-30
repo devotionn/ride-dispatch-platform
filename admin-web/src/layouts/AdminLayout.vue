@@ -53,7 +53,7 @@ async function logout(): Promise<void> {
           <span>平台品牌</span>
           <small>名称 · Logo</small>
         </router-link>
-        <router-link to="/places" :class="{ active: route.path.startsWith('/places') }">
+        <router-link v-if="session?.authority === 'ROLE_ADMIN' || session?.authority === 'ROLE_DISPATCHER'" to="/places" :class="{ active: route.path.startsWith('/places') }">
           <span>常用地点</span>
           <small>地点目录 · 文本搜索</small>
         </router-link>

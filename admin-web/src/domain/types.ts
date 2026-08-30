@@ -57,10 +57,10 @@ export interface PagedOrders {
 export interface OrderView extends OrderSummary {
   sourceDriverId?: number | null
   passengerMobile: string
-  pickupLatitude: number
-  pickupLongitude: number
-  destinationLatitude: number
-  destinationLongitude: number
+  pickupLatitude?: number | null
+  pickupLongitude?: number | null
+  destinationLatitude?: number | null
+  destinationLongitude?: number | null
   remark?: string | null
   tripStage?: TripStage | null
   finalAmount?: number | null
@@ -108,8 +108,8 @@ export interface NearbyDriver {
 
 export interface GeoPointPayload {
   address: string
-  latitude: number
-  longitude: number
+  latitude?: number | null
+  longitude?: number | null
 }
 
 export interface AdminCreateOrderPayload {

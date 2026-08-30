@@ -11,6 +11,7 @@
 # Node / Android (future modules)
 **/node_modules/
 **/.gradle/
+**/.kotlin/
 **/build/
 **/dist/
 **/local.properties

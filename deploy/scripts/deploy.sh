@@ -83,7 +83,7 @@ done
 
 echo "==> Waiting for nginx (up to 60s)"
 deadline=$((SECONDS + 60))
-until compose ps nginx | grep -qE "healthy|running"; do
+until compose ps --status running --services | grep -qx nginx; do
     if (( SECONDS > deadline )); then
         echo "Nginx did not start in time. Recent logs:" >&2
         compose logs --tail=50 nginx >&2

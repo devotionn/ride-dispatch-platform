@@ -1,5 +1,7 @@
 package com.funccrypto.ridedispatch.order.api;
 
+import com.funccrypto.ridedispatch.driver.DriverRepository;
+import com.funccrypto.ridedispatch.driver.VehicleRepository;
 import com.funccrypto.ridedispatch.order.OrderStatus;
 import com.funccrypto.ridedispatch.order.PublicOrderService;
 import com.funccrypto.ridedispatch.payment.PaymentService;
@@ -30,11 +32,20 @@ public class PublicOrderController {
     private final PublicOrderService service;
     private final PaymentService paymentService;
     private final PlaceCatalogService placeCatalogService;
+    private final DriverRepository driverRepository;
+    private final VehicleRepository vehicleRepository;
 
-    public PublicOrderController(PublicOrderService service, PaymentService paymentService, PlaceCatalogService placeCatalogService) {
+    public PublicOrderController(
+            PublicOrderService service,
+            PaymentService paymentService,
+            PlaceCatalogService placeCatalogService,
+            DriverRepository driverRepository,
+            VehicleRepository vehicleRepository) {
         this.service = service;
         this.paymentService = paymentService;
         this.placeCatalogService = placeCatalogService;
+        this.driverRepository = driverRepository;
+        this.vehicleRepository = vehicleRepository;
     }
 
     @PostMapping
@@ -86,7 +97,15 @@ public class PublicOrderController {
         var order = service.getForPassenger(orderNo, passengerToken);
         var payment = paymentService.findByOrderId(order.getId()).orElse(null);
         String paymentToken = payment == null ? null : paymentService.issueFreshToken(payment, java.time.Instant.now());
-        return PassengerOrderResponse.from(order, payment, paymentToken);
+        // Driver/vehicle context powers the safety center (alarm page needs
+        // plate and name to hand to the police).
+        var driver = order.getCurrentDriverId() == null
+                ? null
+                : driverRepository.findById(order.getCurrentDriverId()).orElse(null);
+        var vehicle = driver == null || driver.getDefaultVehicleId() == null
+                ? null
+                : vehicleRepository.findById(driver.getDefaultVehicleId()).orElse(null);
+        return PassengerOrderResponse.from(order, payment, paymentToken, driver, vehicle);
     }
 
     @PostMapping("/{orderNo}/cancel")

@@ -10,6 +10,7 @@ import PaymentsView from './views/PaymentsView.vue'
 import PaymentExceptionsView from './views/PaymentExceptionsView.vue'
 import WithdrawalsView from './views/WithdrawalsView.vue'
 import OperationLogsView from './views/OperationLogsView.vue'
+import PassengerSafetyView from './views/PassengerSafetyView.vue'
 import PlacesView from './views/PlacesView.vue'
 import { getSession, isAuthenticated } from './storage/auth'
 
@@ -29,6 +30,7 @@ const router = createRouter({
         { path: 'brand', name: 'brand', component: BrandView, meta: { title: '平台品牌' } },
         { path: 'payments', name: 'payments', component: PaymentsView, meta: { title: '支付记录' } },
         { path: 'payment-exceptions', name: 'payment-exceptions', component: PaymentExceptionsView, meta: { title: '退款异常', authorities: ['ROLE_ADMIN', 'ROLE_FINANCE'] } },
+        { path: 'passenger-safety', name: 'passenger-safety', component: PassengerSafetyView, meta: { title: '安全与投诉', authorities: ['ROLE_ADMIN', 'ROLE_DISPATCHER'] } },
         { path: 'withdrawals', name: 'withdrawals', component: WithdrawalsView, meta: { title: '提现审核' } },
         { path: 'operation-logs', name: 'operation-logs', component: OperationLogsView, meta: { title: '操作日志', authorities: ['ROLE_ADMIN', 'ROLE_DISPATCHER', 'ROLE_FINANCE'] } },
       ],

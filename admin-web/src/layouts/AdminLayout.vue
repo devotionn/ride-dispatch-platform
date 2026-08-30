@@ -65,6 +65,10 @@ async function logout(): Promise<void> {
           <span>退款异常</span>
           <small>人工退款 · 留痕</small>
         </router-link>
+        <router-link v-if="session?.authority === 'ROLE_ADMIN' || session?.authority === 'ROLE_DISPATCHER'" to="/passenger-safety" :class="{ active: route.path.startsWith('/passenger-safety') }">
+          <span>安全与投诉</span>
+          <small>乘客投诉 · 报警记录</small>
+        </router-link>
         <router-link to="/withdrawals" :class="{ active: route.path.startsWith('/withdrawals') }">
           <span>提现审核</span>
           <small>冻结 · 驳回 · 打款</small>

@@ -192,3 +192,29 @@ export interface WithdrawalView {
   reviewedAt?: string | null
   paidAt?: string | null
 }
+
+export type ComplaintStatus = 'OPEN' | 'PROCESSING' | 'RESOLVED' | 'DISMISSED'
+
+export interface PassengerComplaintView {
+  complaintNo: string
+  orderNo: string | null
+  category: string
+  description: string
+  contactMobile: string | null
+  status: ComplaintStatus
+  handleNote: string | null
+  handledBy: number | null
+  handledAt: string | null
+  createdAt: string
+}
+
+export interface SafetyAlarmView {
+  alarmId: number
+  orderNo: string | null
+  sourcePage: string
+  latitude: string | null
+  longitude: string | null
+  locationText: string | null
+  passengerMobile: string | null
+  createdAt: string
+}

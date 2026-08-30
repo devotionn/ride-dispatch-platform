@@ -28,10 +28,16 @@ export interface PublicDriverProfile {
   maxPassengers: number
 }
 
+export type PlaceSource = 'BROWSER_LOCATION' | 'PLACE_CATALOG' | 'MANUAL' | 'ADMIN'
+
 export interface GeoPointPayload {
   address: string
-  latitude: number
-  longitude: number
+  latitude?: number | null
+  longitude?: number | null
+  coordinateSystem?: 'WGS84'
+  source?: PlaceSource
+  accuracyMeters?: number | null
+  placeId?: number | null
 }
 
 export interface CreateOrderPayload {
@@ -58,11 +64,11 @@ export interface PassengerOrder {
   tripStage?: TripStage | null
   currentDriverId?: number | null
   pickupAddress: string
-  pickupLatitude: number
-  pickupLongitude: number
+  pickupLatitude?: number | null
+  pickupLongitude?: number | null
   destinationAddress: string
-  destinationLatitude: number
-  destinationLongitude: number
+  destinationLatitude?: number | null
+  destinationLongitude?: number | null
   passengerCount: number
   departureAt: string
   remark?: string | null

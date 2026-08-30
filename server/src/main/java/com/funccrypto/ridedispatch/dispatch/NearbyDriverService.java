@@ -49,6 +49,11 @@ public class NearbyDriverService {
     public List<NearbyDriverView> findNearby(String orderNo) {
         RideOrderEntity order = orderRepository.findByOrderNo(orderNo)
                 .orElseThrow(() -> new BusinessException("ORDER_NOT_FOUND", "订单不存在"));
+        if (order.getPickupLatitude() == null || order.getPickupLongitude() == null) {
+            throw new BusinessException(
+                    "PICKUP_LOCATION_UNRESOLVED",
+                    "上车点暂无定位坐标，无法计算附近司机，请人工选择司机");
+        }
 
         List<DriverEntity> candidates = driverRepository
                 .findByAccountStatusAndWorkStatusAndAvailablePassengersGreaterThanEqual(

@@ -14,7 +14,7 @@ if (-not $jdk -or -not (Test-Path (Join-Path $jdk.FullName 'bin\java.exe'))) {
     throw 'Temurin JDK 17 was not found under C:\Program Files\Eclipse Adoptium.'
 }
 
-$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { 'D:\dev_tool\Android\Sdk' }
+$sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { Join-Path $env:LOCALAPPDATA 'Android\Sdk' }
 if (-not (Test-Path (Join-Path $sdk 'platform-tools\adb.exe'))) {
     throw "Android SDK platform-tools was not found at $sdk. Set ANDROID_HOME first."
 }

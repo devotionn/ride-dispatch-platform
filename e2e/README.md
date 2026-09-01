@@ -63,7 +63,7 @@ pnpm run depth:http
 `deployed-http-smoke.cjs` 只使用环境变量中的验收账号，不把密码写入仓库；它验证 Nginx `/api` 代理、管理员/司机登录、权限边界、司机账户、公共订单幂等、乘客取消和司机 SSE 连接。该脚本会在服务器数据库创建一条带 `DEPLOYED-SMOKE` 标记并立即取消的测试订单。
 
 ```powershell
-$env:DEPLOYED_API_URL = 'http://8.138.144.54'
+$env:DEPLOYED_API_URL = 'http://203.0.113.10'
 $env:DEPLOYED_ADMIN_USERNAME = 'admin'
 $env:DEPLOYED_ADMIN_PASSWORD = '<server bootstrap password>'
 $env:DEPLOYED_DRIVER_USERNAME = 'D101'
@@ -71,10 +71,12 @@ $env:DEPLOYED_DRIVER_PASSWORD = '<server driver password>'
 pnpm run smoke:deployed
 ```
 
+`203.0.113.10` 属于文档示例地址（TEST-NET-3），实际执行部署回归时必须通过 `DEPLOYED_API_URL` 指向验收环境。
+
 `deployed-core-flow.cjs` 会继续验证线上 MySQL 的派单、四阶段履约、金额（分）写入、乘客支付上下文、司机收入、提现审批/打款和支付异常驳回。正式环境不启用 `local` profile 的 Mock 支付回调，因此脚本会把该接口的结构化 404 作为预期边界，并改走司机线下收款二次确认，保证后半段结算链路仍能在服务器上回归；真实支付宝/微信回调需要另行配置生产商户参数。
 
 ```powershell
-$env:DEPLOYED_API_URL = 'http://8.138.144.54'
+$env:DEPLOYED_API_URL = 'http://203.0.113.10'
 $env:DEPLOYED_ADMIN_USERNAME = 'admin'
 $env:DEPLOYED_ADMIN_PASSWORD = '<server bootstrap password>'
 $env:DEPLOYED_DRIVER_USERNAME = 'D101'

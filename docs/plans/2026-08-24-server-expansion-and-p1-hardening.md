@@ -20,7 +20,7 @@
 **Steps:**
 1. 让管理员、司机、API 基址从环境变量读取，本地默认值保持不变。
 2. 新增部署冒烟脚本，覆盖健康代理、品牌读取、管理员/司机登录、权限边界、司机状态和管理端司机列表；输出不包含令牌和密码。
-3. 使用 `DEPLOYED_API_URL=http://8.138.144.54` 运行脚本，记录响应码、requestId 和失败诊断。
+3. 使用 `DEPLOYED_API_URL=http://203.0.113.10` 作为文档示例；实际执行时必须由环境变量传入验收环境地址。
 4. 失败时先定位网络/服务/数据层，再决定是否修改业务代码。
 
 ## Task 2: 公网 API 全链路回归
@@ -44,10 +44,10 @@
 - Create: `e2e/deployed-sse-smoke.cjs`
 
 **Steps:**
-1. 用真实司机令牌连接公网 `/api/v1/driver/events`，断言 `CONNECTED` 事件和非司机拒绝。
+1. 用真实司机令牌连接验收环境 `/api/v1/driver/events`，断言 `CONNECTED` 事件和非司机拒绝。
 2. 在连接期间触发派单/状态提交，断言事件的司机边界、事件类型和关联 attemptId/orderNo。
 3. 模拟客户端断线、重连和重复事件，验证最终状态拉取与去重。
-4. 更新 Android 单测并在 Pixel 7 Emulator 上完成服务器地址启动与事件消费冒烟；锁屏/厂商 Push 仍标记为未验收。
+4. 更新 Android 单测并在 Emulator 上完成服务器地址启动与事件消费冒烟；锁屏/厂商 Push 仍标记为未验收。
 
 ## Task 4: 生产部署硬化
 
@@ -61,7 +61,7 @@
 1. 增加必需生产环境变量校验，避免默认数据库密码或引导账号被误用于生产。
 2. 保持后端 8080 回环监听，确认上传目录、日志和临时目录权限最小化。
 3. 增加敏感字段日志脱敏、健康检查和备份/恢复演练说明。
-4. 记录当前管理端 8088 受网络限制的事实；长期方案优先采用域名 HTTPS 443，临时方案保留 SSH 隧道。
+4. 记录管理端非标准端口可能受网络限制；长期方案优先采用域名 HTTPS 443，临时方案可保留 SSH 隧道。
 
 ## Task 5: 支付 Provider 与对账前置模型
 
@@ -79,19 +79,19 @@
 ## Task 6: 完整验收与交付
 
 **Steps:**
-1. Maven 35+ 测试、部署 HTTP 回归、SSE 回归、Admin/H5 构建、Android 单测/Debug 构建全部通过。
+1. Maven 测试、部署 HTTP 回归、SSE 回归、Admin/H5 构建、Android 单测/Debug 构建全部通过。
 2. 更新功能状态基线和部署回归报告，明确已验证、待外部验证、首期不做三类边界。
-3. 重新构建指向公网 API 的 APK，记录 SHA256 和构建参数。
+3. 重新构建指向验收 API 的 APK，记录 SHA256 和构建参数。
 4. 只在没有失败项或明确记录阻塞项时汇报完成，不把 Mock、模拟器或 SSH 隧道描述成正式生产能力。
 
 ## 执行记录（2026-08-24）
 
-> 历史环境记录：本节的 Android JDK21、Maven 测试数量和 Java17 部署 target 仅代表 2026-08-24 当日，不代表当前 Android Gate。当前 Android compile/jvmTarget/Gate 使用 Temurin JDK17，当前后端 Gate 使用 Java 21；最新基线以当前 CI 和验收策略为准。
+> 历史环境记录仅代表当日，不代表当前 Android Gate。当前 Android compile/jvmTarget/Gate 使用 Temurin JDK17，当前后端 Gate 使用 Java 21；最新基线以当前 CI 和验收策略为准。
 
 - [x] 服务器冒烟回归：`smoke:deployed` 7/7。
 - [x] 服务器核心链路：`core:deployed` 7/7；生产 Mock Provider 边界明确为 404，线下收款路径通过。
 - [x] 服务器 SSE 业务事件：`sse:deployed` 3/3。
 - [x] 未注册路由统一返回 `NOT_FOUND`，新增后端回归测试并已部署。
-- [x] Maven `verify` 36/36、Admin Web、Passenger H5、Android JDK21 + SDK35 构建均通过。
+- [x] Maven `verify`、Admin Web、Passenger H5、Android 构建均通过。
 - [ ] 真实支付宝/微信 Provider、签名验签、异步回调、对账、银行打款：等待商户/金融机构参数，不能用本地 Mock 代替。
 - [ ] HTTPS 域名、标准 443 管理端、真机/厂商 Push/后台定位：需要外部环境或运维资源。

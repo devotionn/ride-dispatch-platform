@@ -28,7 +28,7 @@ Phase 3 Android 最小垂直切片，当前覆盖：
 
 ```powershell
 $env:JAVA_HOME = 'C:\path\to\temurin-17'
-$env:ANDROID_HOME = 'D:\dev_tool\Android\Sdk'
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
 $env:ANDROID_SDK_ROOT = $env:ANDROID_HOME
 ```
 
@@ -59,11 +59,11 @@ $env:ANDROID_AVD_HOME = "$env:USERPROFILE\.android\avd"
 & "$env:ANDROID_HOME\emulator\emulator.exe" -avd Pixel_7 -gpu swiftshader_indirect -no-snapshot -no-boot-anim
 ```
 
-本次服务器验收 APK 使用以下命令构建，安装包会访问 Nginx 80 端口：
+服务器验收 APK 的示例构建命令如下；`203.0.113.10` 为文档保留地址，实际验收时替换为目标 API 域名或地址：
 
 ```powershell
 .\driver-app\gradlew.bat -p driver-app :app:testDebugUnitTest :app:assembleDebug `
-  -PdriverApiBaseUrl=http://8.138.144.54 --no-daemon --console=plain
+  -PdriverApiBaseUrl=http://203.0.113.10 --no-daemon --console=plain
 ```
 
 ## 当前限制

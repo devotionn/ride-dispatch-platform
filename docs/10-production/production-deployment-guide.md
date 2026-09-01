@@ -80,18 +80,16 @@ git pull
 
 推荐宿主机与所有容器统一 `Asia/Shanghai`（compose 已对 mysql/backend 设置 `TZ`）。数据库内 `TIMESTAMP(6)` 列与 Hibernate 的 Instant 绑定语义保持现状（JDBC `serverTimezone=Asia/Shanghai`、Hibernate `jdbc.time_zone: UTC`），不要在业务侧改动。
 
-## 附录：已部署的测试服务器（2026-08-30）
+## 附录：测试服务器参考配置（已脱敏）
 
-阿里云测试 ECS（Alibaba Cloud Linux 3，2C/3.5G）已按本指南完成实际部署，与指南的差异和运维入口如下：
+以下内容保留部署方法，不包含真实公网地址或主机身份：
 
-- 部署目录：`/opt/ride-dispatch-docker/`（compose 文件、production/.env、certs、scripts）。`.env` 与证书只存在于服务器（600 权限），不在 Git。
-- 服务器无法直连 Docker Hub，镜像统一在构建机 `docker save | gzip` 后上传，服务器 `docker load` 加载（backend / nginx / mysql:8.4 三张）。服务器上不需要 pnpm/Maven。
-- 端口：80（HTTP→HTTPS 跳转）、443（乘客端+API）、8088（管理端，沿用历史已放行端口）。
-- 自签证书 CN=8.138.144.54，有效期 365 天，仅测试用途。
-- 旧版 systemd 部署（宿主机 Java + MySQL 8.0 + Nginx）已停止并禁用；迁移前数据库快照保留在 `/opt/ride-dispatch/backups/pre-docker-migration-*.sql.gz`，恢复旧部署的回退路径见 rollback runbook。
-- 数据迁移：旧库 dump 恢复进新 MySQL 后，backend 首次启动由 Flyway 前向迁移 V010 → V012（V011/V012 Java 迁移实测通过），业务数据完整保留。
-- 已验证：容器随服务器重启自动恢复（restart: unless-stopped + docker.service enabled）、服务器端 6 项冒烟全过。
-- 待办：阿里云控制台安全组加入方向 TCP 443（当前仅 80/8088 放行），放行后乘客端 HTTPS 立即可用；管理端 8088 建议同时收紧来源 IP。
+- 部署目录示例：`/opt/ride-dispatch-docker/`（compose 文件、production/.env、certs、scripts）。`.env` 与证书只存在于服务器，不在 Git。
+- 如服务器无法直连 Docker Hub，可在构建机 `docker save | gzip` 后上传并 `docker load`。
+- 端口示例：80（HTTP→HTTPS）、443（乘客端+API）、8088（管理端历史兼容端口）。
+- 自签证书测试时可使用 `203.0.113.10` 等 RFC 5737 文档地址作为说明，不应把真实服务器 IP 写入仓库。
+- 旧版 systemd 部署迁移至容器后，应保留迁移前数据库快照，并按 rollback runbook 维护回退路径。
+- 数据迁移由 Flyway 前向执行，迁移前必须备份并验证业务数据完整性。
 
 常规运维（备份/恢复/冒烟）直接在服务器上执行：
 

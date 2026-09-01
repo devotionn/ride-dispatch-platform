@@ -1,6 +1,7 @@
 const assert = require('node:assert/strict')
 
-const baseUrl = (process.env.DEPLOYED_API_URL ?? 'http://8.138.144.54').replace(/\/$/, '')
+const baseUrl = (process.env.DEPLOYED_API_URL ?? '').replace(/\/$/, '')
+if (!baseUrl) throw new Error('DEPLOYED_API_URL is required for deployed E2E checks')
 const adminUsername = process.env.DEPLOYED_ADMIN_USERNAME
 const adminPassword = process.env.DEPLOYED_ADMIN_PASSWORD
 const driverUsername = process.env.DEPLOYED_DRIVER_USERNAME

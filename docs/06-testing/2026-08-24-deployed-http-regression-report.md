@@ -2,7 +2,7 @@
 
 ## 环境
 
-- 公网入口：`http://8.138.144.54/`（乘客端）和 `http://8.138.144.54:8088/`（管理端）。
+- 公网入口：`http://203.0.113.10/`（乘客端）和 `http://203.0.113.10:8088/`（管理端）。该地址为 RFC 5737 文档示例地址，不代表真实服务器。
 - 后端：Spring Boot 生产 profile，回环监听 `127.0.0.1:8080`。
 - 数据库：MySQL 8，Flyway 已执行到 v010。
 - 服务：`ride-dispatch`、Nginx、MySQL 均为 active，Actuator health 为 `UP`。
@@ -31,11 +31,11 @@
 - 本次 Provider/对账模型加入后 Maven `verify`：47 tests，0 failures。
 - Admin Web：`vue-tsc + vite build` PASS。
 - Passenger H5：`vue-tsc + vite build` PASS。
-- Android：该历史报告使用 JDK 21、`ANDROID_HOME=D:\dev_tool\Android\Sdk` 构建，`testDebugUnitTest assembleDebug` PASS；这不代表当前 Android Gate 基线。当前项目 compile/jvmTarget 与 Gate 已统一为 Temurin JDK 17；APK 指向公网 API。
+- Android：该历史报告使用 JDK 21、标准 Windows Android SDK 路径构建，`testDebugUnitTest assembleDebug` PASS；这不代表当前 Android Gate 基线。当前项目 compile/jvmTarget 与 Gate 已统一为 Temurin JDK 17；APK 指向验收 API。
 
 Provider 前置模型已部署但不改变生产支付写入：生产注册表为空，真实渠道尚未配置；请求本地 Mock 回调仍得到结构化 `404 NOT_FOUND`。对账比较器当前只做只读差异分类，不自动改账。
 
 ## 网络结论
 
 - 公网 80 已从开发机访问成功。
-- 管理端 8088 的阿里云安全组规则已配置；当前 Wi-Fi/代理对非标准端口主动重置连接，换热点或 SSH 隧道 `127.0.0.1:18088` 可用。长期建议绑定域名并统一走 HTTPS 443。
+- 管理端 8088 的云安全组规则已配置；测试网络对非标准端口存在连接限制，SSH 隧道 `127.0.0.1:18088` 可作为临时验证方式。长期建议绑定域名并统一走 HTTPS 443。

@@ -23,7 +23,9 @@ TLS 基线：TLSv1.2 + TLSv1.3，HSTS（max-age=15552000），`X-Content-Type-Op
 
 ```bash
 # 首次签发（nginx 已用自签/占位证书跑起来，80 端口在服务）
-sudo certbot certonly --webroot -w /var/www/certbot -d <你的域名>
+# Certbot webroot 必须与 nginx 容器挂载的目录一致。
+mkdir -p deploy/production/certbot
+sudo certbot certonly --webroot -w "$(pwd)/deploy/production/certbot" -d <你的域名>
 
 # 拷入挂载目录
 sudo cp /etc/letsencrypt/live/<你的域名>/fullchain.pem deploy/production/certs/fullchain.pem

@@ -17,6 +17,13 @@ Phase 3 Android 最小垂直切片，当前覆盖：
 
 需要 Android Studio、Android SDK 35 和 JDK 17。项目 Android 编译选项和 Kotlin `jvmTarget` 固定为 Java 17；Android Gate 使用 Temurin JDK 17。仓库已包含锁定到 Gradle 8.9 并校验发行包摘要的 Gradle Wrapper；已验证 `testDebugUnitTest`、`assembleDebug` 和 `lintDebug`。Pixel 7 Android 15 Emulator 已可用软件渲染启动并完成 APK 冷启动验证；真实手机仍未验证。
 
+为避免依赖会被系统清理的临时 JDK 目录，Windows 可直接运行仓库脚本。脚本会自动选择 `C:\Program Files\Eclipse Adoptium\jdk-17*`，并只在脚本进程内设置 Android 环境：
+
+```powershell
+.\driver-app\scripts\android-verify.ps1
+.\driver-app\scripts\android-verify.ps1 -Install
+```
+
 后端 Java 21 与 Android Java 17 是两个独立基线；Windows 构建前请在当前 PowerShell 会话指定 Temurin JDK 17，并同时设置 Android SDK。JDK 25 暂不兼容项目使用的 Kotlin/Gradle 工具链（会在脚本初始化阶段报 `IllegalArgumentException: 25.0.4`）：
 
 ```powershell

@@ -82,6 +82,8 @@ services:
     volumes:
       # TLS certificates live on the host; see docs/10-production/https-and-domain-setup.md
       - ./production/certs:/etc/nginx/certs:ro
+      # Certbot's HTTP-01 challenge files must be served by nginx on port 80.
+      - ./production/certbot:/var/www/certbot:ro
 
 volumes:
   mysql-data:

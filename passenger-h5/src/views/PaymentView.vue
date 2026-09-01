@@ -5,6 +5,7 @@ import { showFailToast, showSuccessToast } from 'vant'
 import QRCode from 'qrcode'
 
 import { createPaymentAttempt, getPaymentStatus, mockPaymentFailure, mockPaymentSuccess, type PaymentChannel, type PaymentResponse } from '../api/payments'
+import SafetyCenter from '../components/SafetyCenter.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -171,5 +172,7 @@ function goBackToOrder(): void {
 
       <div class="submit-area"><van-button block round plain type="primary" @click="goBackToOrder">返回订单状态</van-button><p class="privacy-note">支付结果以服务端状态为准，关闭页面后可从订单状态继续查询。</p></div>
     </template>
+
+    <SafetyCenter source-page="PAYMENT" :order-no="orderNo" />
   </main>
 </template>

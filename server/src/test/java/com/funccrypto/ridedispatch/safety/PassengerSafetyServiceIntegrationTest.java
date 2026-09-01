@@ -89,7 +89,7 @@ class PassengerSafetyServiceIntegrationTest {
 
         PassengerComplaintEntity complaint = safetyService.createComplaint(
                 result.orderNo(), result.passengerAccessToken(), "SERVICE_ATTITUDE",
-                "司机迟到四十分钟且态度恶劣。", "13911112222");
+                "司机迟到四十分钟且态度恶劣。", "13800009998");
 
         assertThat(complaint.getComplaintNo()).startsWith("PC");
         assertThat(complaint.getStatus()).isEqualTo(ComplaintStatus.OPEN);
